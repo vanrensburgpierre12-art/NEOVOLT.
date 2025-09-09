@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: neovolt
+      POSTGRES_USER: neovolt
+      POSTGRES_PASSWORD: neovolt123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - neovolt-network
+
+  backend:
+    build: ./backend
+    ports:
+      - "3001:3001"
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://neovolt:neovolt123@postgres:5432/neovolt
+      JWT_SECRET: your-super-secret-jwt-key-change-in-production
+      PAYPAL_CLIENT_ID: your-paypal-client-id
+      PAYPAL_CLIENT_SECRET: your-paypal-client-secret
+    depends_on:
+      - postgres
+    networks:
+      - neovolt-network
+    command: sh -c "npm run migrate && node scripts/create-admin.js && npm start"
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "650:80"
+    depends_on:
+      - backend
+    networks:
+      - neovolt-network
+
+volumes:
+  postgres_data:
+
+networks:
+  neovolt-network:
+    driver: bridge
