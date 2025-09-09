@@ -93,6 +93,28 @@
                     </div>
                   </div>
                 </label>
+
+                <label class="payment-option">
+                  <input 
+                    v-model="paymentMethod" 
+                    type="radio" 
+                    value="stripe" 
+                    class="payment-radio"
+                  />
+                  <div class="payment-card">
+                    <div class="payment-icon">💳</div>
+                    <div class="payment-info">
+                      <h3>Credit/Debit Card</h3>
+                      <p>Pay with Visa, Mastercard, or American Express</p>
+                    </div>
+                  </div>
+                </label>
+              </div>
+
+              <!-- Stripe Payment Form -->
+              <div v-if="paymentMethod === 'stripe'" class="stripe-form">
+                <div id="stripe-card-element" class="stripe-input"></div>
+                <div id="stripe-card-errors" class="stripe-errors"></div>
               </div>
             </div>
 
@@ -131,7 +153,7 @@
 </template>
 
 <script>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useCartStore } from '../stores/cart'
 import { useAuthStore } from '../stores/auth'
@@ -156,6 +178,9 @@ export default {
 
     const paymentMethod = ref('paypal')
     const processing = ref(false)
+    const stripe = ref(null)
+    const stripeElements = ref(null)
+    const cardElement = ref(null)
 
     const processOrder = async () => {
       if (cartStore.isEmpty) return
@@ -181,8 +206,44 @@ export default {
 
           // Redirect to PayPal
           window.location.href = paymentResponse.data.approvalUrl
-        } else {
-          // For other payment methods, redirect to success page
+        } else if (paymentMethod.value === 'stripe') {
+          // Create Stripe payment intent
+          const paymentResponse = await axios.post('/api/payments/stripe/create', {
+            orderId: order.id
+          })
+
+          const { clientSecret } = paymentResponse.data
+
+          // Confirm payment with Stripe
+          const { error, paymentIntent } = await stripe.value.confirmCardPayment(clientSecret, {
+            payment_method: {
+              card: cardElement.value,
+              billing_details: {
+                name: `${shippingAddress.value.firstName} ${shippingAddress.value.lastName}`,
+                address: {
+                  line1: shippingAddress.value.address,
+                  city: shippingAddress.value.city,
+                  postal_code: shippingAddress.value.postalCode,
+                  country: shippingAddress.value.country
+                }
+              }
+            }
+          })
+
+          if (error) {
+            console.error('Stripe payment failed:', error)
+            alert('Payment failed: ' + error.message)
+            return
+          }
+
+          // Confirm payment on backend
+          await axios.post('/api/payments/stripe/confirm', {
+            paymentIntentId: paymentIntent.id,
+            orderId: order.id
+          })
+
+          // Clear cart and redirect to success page
+          cartStore.clearCart()
           router.push(`/orders/${order.id}`)
         }
       } catch (error) {
@@ -193,7 +254,38 @@ export default {
       }
     }
 
-    onMounted(() => {
+    const initializeStripe = async () => {
+      if (window.Stripe) {
+        stripe.value = window.Stripe(process.env.VUE_APP_STRIPE_PUBLISHABLE_KEY)
+        stripeElements.value = stripe.value.elements()
+        cardElement.value = stripeElements.value.create('card', {
+          style: {
+            base: {
+              fontSize: '16px',
+              color: '#ffffff',
+              '::placeholder': {
+                color: '#aab7c4',
+              },
+            },
+            invalid: {
+              color: '#fa755a',
+            },
+          },
+        })
+        cardElement.value.mount('#stripe-card-element')
+        
+        cardElement.value.on('change', (event) => {
+          const displayError = document.getElementById('stripe-card-errors')
+          if (event.error) {
+            displayError.textContent = event.error.message
+          } else {
+            displayError.textContent = ''
+          }
+        })
+      }
+    }
+
+    onMounted(async () => {
       if (!authStore.isAuthenticated) {
         router.push('/login')
         return
@@ -208,6 +300,10 @@ export default {
         shippingAddress.value.firstName = authStore.user.firstName || ''
         shippingAddress.value.lastName = authStore.user.lastName || ''
       }
+
+      // Initialize Stripe
+      await nextTick()
+      await initializeStripe()
     })
 
     return {
@@ -216,7 +312,10 @@ export default {
       paymentMethod,
       processing,
       processOrder,
-      formatCurrency
+      formatCurrency,
+      stripe,
+      stripeElements,
+      cardElement
     }
   }
 }
@@ -341,6 +440,30 @@ export default {
 .payment-info p {
   color: rgba(255, 255, 255, 0.8);
   font-size: 0.9rem;
+}
+
+.stripe-form {
+  margin-top: 20px;
+  padding: 20px;
+  background: rgba(26, 26, 46, 0.5);
+  border: 1px solid rgba(0, 255, 255, 0.3);
+  border-radius: 8px;
+}
+
+.stripe-input {
+  padding: 12px;
+  background: rgba(26, 26, 46, 0.8);
+  border: 1px solid rgba(0, 255, 255, 0.3);
+  border-radius: 4px;
+  color: #ffffff;
+  font-size: 16px;
+  margin-bottom: 10px;
+}
+
+.stripe-errors {
+  color: #fa755a;
+  font-size: 14px;
+  margin-top: 5px;
 }
 
 .order-summary {

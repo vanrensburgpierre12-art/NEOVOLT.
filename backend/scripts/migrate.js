@@ -69,6 +69,8 @@ const createTables = async () => {
         payment_method VARCHAR(50),
         payment_status VARCHAR(20) DEFAULT 'pending',
         payment_id VARCHAR(255),
+        tracking_number VARCHAR(255),
+        shipping_status VARCHAR(20) DEFAULT 'pending' CHECK (shipping_status IN ('pending', 'shipped', 'in_transit', 'delivered', 'cancelled')),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
@@ -105,6 +107,18 @@ const createTables = async () => {
       ('Electrical Tester', 'Digital multimeter for electrical testing', 45.99, 30, 4, '{"display": "LCD", "measurements": "Voltage, Current, Resistance", "safety": "CAT III 600V"}')
       ON CONFLICT DO NOTHING
     `);
+
+    // Add tracking columns to existing orders table if they don't exist
+    try {
+      await pool.query(`
+        ALTER TABLE orders 
+        ADD COLUMN IF NOT EXISTS tracking_number VARCHAR(255),
+        ADD COLUMN IF NOT EXISTS shipping_status VARCHAR(20) DEFAULT 'pending' CHECK (shipping_status IN ('pending', 'shipped', 'in_transit', 'delivered', 'cancelled'))
+      `);
+      console.log('Added tracking columns to orders table');
+    } catch (error) {
+      console.log('Tracking columns may already exist:', error.message);
+    }
 
     console.log('Database tables created successfully');
   } catch (error) {
