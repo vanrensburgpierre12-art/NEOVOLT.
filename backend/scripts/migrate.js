@@ -120,6 +120,49 @@ const createTables = async () => {
       console.log('Tracking columns may already exist:', error.message);
     }
 
+    // Add WhatsApp opt-in column to users table
+    try {
+      await pool.query(`
+        ALTER TABLE users 
+        ADD COLUMN IF NOT EXISTS whatsapp_opt_in BOOLEAN DEFAULT false,
+        ADD COLUMN IF NOT EXISTS phone VARCHAR(20)
+      `);
+      console.log('Added WhatsApp columns to users table');
+    } catch (error) {
+      console.log('WhatsApp columns may already exist:', error.message);
+    }
+
+    // Create newsletters table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS newsletters (
+        id SERIAL PRIMARY KEY,
+        subject VARCHAR(255) NOT NULL,
+        content TEXT NOT NULL,
+        type VARCHAR(50) DEFAULT 'general' CHECK (type IN ('general', 'promotional', 'announcement', 'product_update')),
+        status VARCHAR(20) DEFAULT 'draft' CHECK (status IN ('draft', 'scheduled', 'sent', 'cancelled')),
+        scheduled_at TIMESTAMP,
+        sent_at TIMESTAMP,
+        sent_count INTEGER DEFAULT 0,
+        created_by INTEGER REFERENCES users(id),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Create WhatsApp messages table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS whatsapp_messages (
+        id SERIAL PRIMARY KEY,
+        from_number VARCHAR(20) NOT NULL,
+        message_id VARCHAR(255) UNIQUE NOT NULL,
+        message_type VARCHAR(50) NOT NULL,
+        content TEXT,
+        sender_name VARCHAR(255),
+        timestamp TIMESTAMP NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
     console.log('Database tables created successfully');
   } catch (error) {
     console.error('Error creating tables:', error);

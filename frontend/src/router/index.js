@@ -13,6 +13,7 @@ import AdminProducts from '../views/AdminProducts.vue'
 import AdminOrders from '../views/AdminOrders.vue'
 import AdminUsers from '../views/AdminUsers.vue'
 import AdminCategories from '../views/AdminCategories.vue'
+import AdminNewsletters from '../views/AdminNewsletters.vue'
 
 const routes = [
   {
@@ -92,6 +93,12 @@ const routes = [
     path: '/admin/categories',
     name: 'AdminCategories',
     component: AdminCategories,
+    meta: { requiresAuth: true, requiresAdmin: true }
+  },
+  {
+    path: '/admin/newsletters',
+    name: 'AdminNewsletters',
+    component: AdminNewsletters,
     meta: { requiresAuth: true, requiresAdmin: true }
   }
 ]
