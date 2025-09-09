@@ -45,7 +45,24 @@
                 v-model="profileForm.phone" 
                 type="tel" 
                 class="form-input" 
+                placeholder="+27XXXXXXXXX"
               />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">WhatsApp Notifications</label>
+              <div class="checkbox-group">
+                <label class="checkbox-label">
+                  <input 
+                    v-model="profileForm.whatsappOptIn" 
+                    type="checkbox" 
+                    class="checkbox-input"
+                  />
+                  <span class="checkbox-text">
+                    📱 Receive order updates and notifications via WhatsApp
+                  </span>
+                </label>
+              </div>
             </div>
 
             <button 
@@ -141,7 +158,8 @@ export default {
       firstName: '',
       lastName: '',
       email: '',
-      phone: ''
+      phone: '',
+      whatsappOptIn: false
     })
 
     const passwordForm = ref({
@@ -219,7 +237,8 @@ export default {
           firstName: authStore.user.firstName || '',
           lastName: authStore.user.lastName || '',
           email: authStore.user.email || '',
-          phone: authStore.user.phone || ''
+          phone: authStore.user.phone || '',
+          whatsappOptIn: authStore.user.whatsapp_opt_in || false
         }
       }
       loadUserStats()
@@ -347,6 +366,29 @@ export default {
   color: rgba(255, 255, 255, 0.8);
   font-size: 1.1rem;
   font-weight: 500;
+}
+
+.checkbox-group {
+  margin-top: 10px;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.checkbox-input {
+  width: 18px;
+  height: 18px;
+  accent-color: #00ffff;
+}
+
+.checkbox-text {
+  font-size: 0.95rem;
+  line-height: 1.4;
 }
 
 @media (max-width: 768px) {

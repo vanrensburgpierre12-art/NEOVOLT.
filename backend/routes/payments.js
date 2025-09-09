@@ -1,5 +1,6 @@
 const express = require('express');
 const paypal = require('paypal-rest-sdk');
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 
@@ -62,7 +63,7 @@ router.post('/paypal/create', authenticateToken, async (req, res) => {
         },
         amount: {
           currency: 'USD',
-          total: order.total_amount.toFixed(2)
+          total: parseFloat(order.total_amount).toFixed(2)
         },
         description: `Order ${order.order_number} - Neovolt Electronics`
       }]
@@ -169,6 +170,115 @@ router.get('/status/:orderId', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Get payment status error:', error);
     res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Create Stripe payment intent
+router.post('/stripe/create', authenticateToken, async (req, res) => {
+  try {
+    const { orderId } = req.body;
+
+    // Get order details
+    const orderResult = await pool.query(`
+      SELECT o.*, u.first_name, u.last_name, u.email
+      FROM orders o
+      JOIN users u ON o.user_id = u.id
+      WHERE o.id = $1 AND o.user_id = $2
+    `, [orderId, req.user.id]);
+
+    if (orderResult.rows.length === 0) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+
+    const order = orderResult.rows[0];
+
+    // Get order items
+    const itemsResult = await pool.query(`
+      SELECT oi.*, p.name
+      FROM order_items oi
+      JOIN products p ON oi.product_id = p.id
+      WHERE oi.order_id = $1
+    `, [orderId]);
+
+    const items = itemsResult.rows.map(item => ({
+      name: item.name,
+      quantity: item.quantity,
+      amount: Math.round(parseFloat(item.price) * 100) // Convert to cents
+    }));
+
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: Math.round(parseFloat(order.total_amount) * 100), // Convert to cents
+      currency: 'usd',
+      metadata: {
+        orderId: orderId,
+        orderNumber: order.order_number,
+        userId: req.user.id
+      },
+      description: `Order ${order.order_number} - Neovolt Electronics`
+    });
+
+    // Store payment intent ID in order
+    await pool.query(
+      'UPDATE orders SET payment_id = $1 WHERE id = $2',
+      [paymentIntent.id, orderId]
+    );
+
+    res.json({
+      clientSecret: paymentIntent.client_secret,
+      paymentIntentId: paymentIntent.id
+    });
+  } catch (error) {
+    console.error('Create Stripe payment error:', error);
+    res.status(500).json({ message: 'Payment creation failed' });
+  }
+});
+
+// Confirm Stripe payment
+router.post('/stripe/confirm', authenticateToken, async (req, res) => {
+  try {
+    const { paymentIntentId, orderId } = req.body;
+
+    const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+
+    if (paymentIntent.status === 'succeeded') {
+      // Update order payment status
+      await pool.query(
+        'UPDATE orders SET payment_status = $1, status = $2 WHERE id = $3',
+        ['completed', 'processing', orderId]
+      );
+
+      res.json({
+        message: 'Payment completed successfully',
+        payment: {
+          id: paymentIntent.id,
+          status: paymentIntent.status,
+          amount: paymentIntent.amount
+        }
+      });
+    } else {
+      res.status(400).json({ message: 'Payment not completed' });
+    }
+  } catch (error) {
+    console.error('Confirm Stripe payment error:', error);
+    res.status(500).json({ message: 'Payment confirmation failed' });
+  }
+});
+
+// Get Stripe payment status
+router.get('/stripe/status/:paymentIntentId', authenticateToken, async (req, res) => {
+  try {
+    const { paymentIntentId } = req.params;
+
+    const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+
+    res.json({
+      status: paymentIntent.status,
+      amount: paymentIntent.amount,
+      currency: paymentIntent.currency
+    });
+  } catch (error) {
+    console.error('Get Stripe payment status error:', error);
+    res.status(500).json({ message: 'Failed to get payment status' });
   }
 });
 

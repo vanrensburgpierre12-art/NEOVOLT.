@@ -42,6 +42,14 @@
             <div class="order-items">
               <span class="items-label">{{ order.item_count }} item(s)</span>
             </div>
+            <div v-if="order.tracking_number" class="tracking-info">
+              <span class="tracking-label">Tracking:</span>
+              <span class="tracking-number">{{ order.tracking_number }}</span>
+            </div>
+            <div v-if="order.shipping_status" class="shipping-status" :class="order.shipping_status">
+              <span class="shipping-label">Shipping:</span>
+              <span class="shipping-value">{{ getShippingStatusText(order.shipping_status) }}</span>
+            </div>
           </div>
 
           <div class="order-actions">
@@ -111,6 +119,17 @@ export default {
       router.push(`/orders/${orderId}`)
     }
 
+    const getShippingStatusText = (status) => {
+      const statusTexts = {
+        'pending': 'Pending',
+        'shipped': 'Shipped',
+        'in_transit': 'In Transit',
+        'delivered': 'Delivered',
+        'cancelled': 'Cancelled'
+      }
+      return statusTexts[status] || status
+    }
+
     const goToPage = (page) => {
       pagination.value.page = page
       loadOrders()
@@ -145,7 +164,8 @@ export default {
       formatDate,
       goToOrder,
       goToPage,
-      formatCurrency
+      formatCurrency,
+      getShippingStatusText
     }
   }
 }
@@ -318,6 +338,52 @@ export default {
 .order-items {
   color: rgba(255, 255, 255, 0.7);
   font-size: 0.9rem;
+}
+
+.tracking-info,
+.shipping-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: 0.9rem;
+}
+
+.tracking-label,
+.shipping-label {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.tracking-number {
+  color: #00ffff;
+  font-weight: 500;
+  background: rgba(0, 255, 255, 0.1);
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+.shipping-value {
+  font-weight: 500;
+}
+
+.shipping-status.pending .shipping-value {
+  color: #ffa500;
+}
+
+.shipping-status.shipped .shipping-value {
+  color: #00bfff;
+}
+
+.shipping-status.in_transit .shipping-value {
+  color: #00ffff;
+}
+
+.shipping-status.delivered .shipping-value {
+  color: #00ff00;
+}
+
+.shipping-status.cancelled .shipping-value {
+  color: #ff4444;
 }
 
 .order-actions {

@@ -14,6 +14,9 @@
       <router-view />
     </main>
 
+    <!-- WhatsApp Integration -->
+    <WhatsAppIntegration />
+
     <!-- Footer -->
     <Footer />
   </div>
@@ -22,12 +25,14 @@
 <script>
 import Navbar from './components/Navbar.vue'
 import Footer from './components/Footer.vue'
+import WhatsAppIntegration from './components/WhatsAppIntegration.vue'
 
 export default {
   name: 'App',
   components: {
     Navbar,
-    Footer
+    Footer,
+    WhatsAppIntegration
   }
 }
 </script>

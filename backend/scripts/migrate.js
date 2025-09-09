@@ -69,6 +69,8 @@ const createTables = async () => {
         payment_method VARCHAR(50),
         payment_status VARCHAR(20) DEFAULT 'pending',
         payment_id VARCHAR(255),
+        tracking_number VARCHAR(255),
+        shipping_status VARCHAR(20) DEFAULT 'pending' CHECK (shipping_status IN ('pending', 'shipped', 'in_transit', 'delivered', 'cancelled')),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
@@ -104,6 +106,61 @@ const createTables = async () => {
       ('Premium Power Cable', 'Heavy-duty power cable for industrial use', 25.99, 75, 3, '{"length": "5m", "gauge": "2.5mm²", "voltage": "300V", "material": "Copper"}'),
       ('Electrical Tester', 'Digital multimeter for electrical testing', 45.99, 30, 4, '{"display": "LCD", "measurements": "Voltage, Current, Resistance", "safety": "CAT III 600V"}')
       ON CONFLICT DO NOTHING
+    `);
+
+    // Add tracking columns to existing orders table if they don't exist
+    try {
+      await pool.query(`
+        ALTER TABLE orders 
+        ADD COLUMN IF NOT EXISTS tracking_number VARCHAR(255),
+        ADD COLUMN IF NOT EXISTS shipping_status VARCHAR(20) DEFAULT 'pending' CHECK (shipping_status IN ('pending', 'shipped', 'in_transit', 'delivered', 'cancelled'))
+      `);
+      console.log('Added tracking columns to orders table');
+    } catch (error) {
+      console.log('Tracking columns may already exist:', error.message);
+    }
+
+    // Add WhatsApp opt-in column to users table
+    try {
+      await pool.query(`
+        ALTER TABLE users 
+        ADD COLUMN IF NOT EXISTS whatsapp_opt_in BOOLEAN DEFAULT false,
+        ADD COLUMN IF NOT EXISTS phone VARCHAR(20)
+      `);
+      console.log('Added WhatsApp columns to users table');
+    } catch (error) {
+      console.log('WhatsApp columns may already exist:', error.message);
+    }
+
+    // Create newsletters table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS newsletters (
+        id SERIAL PRIMARY KEY,
+        subject VARCHAR(255) NOT NULL,
+        content TEXT NOT NULL,
+        type VARCHAR(50) DEFAULT 'general' CHECK (type IN ('general', 'promotional', 'announcement', 'product_update')),
+        status VARCHAR(20) DEFAULT 'draft' CHECK (status IN ('draft', 'scheduled', 'sent', 'cancelled')),
+        scheduled_at TIMESTAMP,
+        sent_at TIMESTAMP,
+        sent_count INTEGER DEFAULT 0,
+        created_by INTEGER REFERENCES users(id),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Create WhatsApp messages table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS whatsapp_messages (
+        id SERIAL PRIMARY KEY,
+        from_number VARCHAR(20) NOT NULL,
+        message_id VARCHAR(255) UNIQUE NOT NULL,
+        message_type VARCHAR(50) NOT NULL,
+        content TEXT,
+        sender_name VARCHAR(255),
+        timestamp TIMESTAMP NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
     `);
 
     console.log('Database tables created successfully');

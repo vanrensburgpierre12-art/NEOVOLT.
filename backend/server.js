@@ -12,6 +12,9 @@ const userRoutes = require('./routes/users');
 const adminRoutes = require('./routes/admin');
 const paymentRoutes = require('./routes/payments');
 const reviewRoutes = require('./routes/reviews');
+const shippingRoutes = require('./routes/shipping');
+const whatsappRoutes = require('./routes/whatsapp');
+const newsletterRoutes = require('./routes/newsletters');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -46,6 +49,9 @@ app.use('/api/users', userRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/reviews', reviewRoutes);
+app.use('/api/shipping', shippingRoutes);
+app.use('/api/whatsapp', whatsappRoutes);
+app.use('/api/newsletters', newsletterRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
