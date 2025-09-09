@@ -34,7 +34,7 @@
 
           <!-- Price and Stock -->
           <div class="price-stock">
-            <div class="price">${{ product.price }}</div>
+            <div class="price">{{ formatCurrency(product.price) }}</div>
             <div class="stock" :class="{ 'low-stock': product.stock_quantity < 10, 'out-of-stock': product.stock_quantity === 0 }">
               {{ product.stock_quantity > 0 ? `${product.stock_quantity} in stock` : 'Out of stock' }}
             </div>
@@ -61,6 +61,28 @@
         </div>
       </div>
 
+      <!-- Product Reviews -->
+      <ProductReviews 
+        v-if="product" 
+        :product-id="product.id" 
+        @review-submitted="handleReviewSubmitted"
+      />
+
+      <!-- Review Form -->
+      <ReviewForm 
+        v-if="product && showReviewForm" 
+        :product-id="product.id"
+        @review-submitted="handleReviewSubmitted"
+        @cancel="showReviewForm = false"
+      />
+
+      <!-- Add Review Button -->
+      <div v-if="product && !showReviewForm" class="add-review-section">
+        <button @click="showReviewForm = true" class="btn btn-primary">
+          Write a Review
+        </button>
+      </div>
+
       <!-- Related Products -->
       <div class="related-products">
         <h2>Related Products</h2>
@@ -77,7 +99,7 @@
               class="product-image"
             />
             <h3 class="product-name">{{ relatedProduct.name }}</h3>
-            <p class="product-price">${{ relatedProduct.price }}</p>
+            <p class="product-price">{{ formatCurrency(relatedProduct.price) }}</p>
           </div>
         </div>
       </div>
@@ -103,9 +125,16 @@ import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useProductsStore } from '../stores/products'
 import { useCartStore } from '../stores/cart'
+import { formatCurrency } from '../utils/currency'
+import ProductReviews from '../components/ProductReviews.vue'
+import ReviewForm from '../components/ReviewForm.vue'
 
 export default {
   name: 'ProductDetail',
+  components: {
+    ProductReviews,
+    ReviewForm
+  },
   props: {
     id: String
   },
@@ -120,6 +149,7 @@ export default {
     const quantity = ref(1)
     const addingToCart = ref(false)
     const relatedProducts = ref([])
+    const showReviewForm = ref(false)
 
     const productId = props.id || route.params.id
 
@@ -159,6 +189,11 @@ export default {
       router.push(`/product/${productId}`)
     }
 
+    const handleReviewSubmitted = () => {
+      showReviewForm.value = false
+      // The ProductReviews component will automatically refresh
+    }
+
     const loadProduct = async () => {
       try {
         loading.value = true
@@ -189,11 +224,14 @@ export default {
       quantity,
       addingToCart,
       relatedProducts,
+      showReviewForm,
       formatSpecKey,
       increaseQuantity,
       decreaseQuantity,
       addToCart,
-      goToProduct
+      goToProduct,
+      handleReviewSubmitted,
+      formatCurrency
     }
   }
 }
@@ -350,6 +388,11 @@ export default {
 .btn-lg {
   padding: 15px 30px;
   font-size: 1.1rem;
+}
+
+.add-review-section {
+  margin: 40px 0;
+  text-align: center;
 }
 
 .related-products {

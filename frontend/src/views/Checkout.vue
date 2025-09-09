@@ -106,12 +106,12 @@
                   class="summary-item"
                 >
                   <span>{{ item.name }} x{{ item.quantity }}</span>
-                  <span>${{ item.subtotal.toFixed(2) }}</span>
+                  <span>{{ formatCurrency(item.subtotal) }}</span>
                 </div>
               </div>
               <div class="summary-total">
                 <span>Total:</span>
-                <span>${{ cartStore.total.toFixed(2) }}</span>
+                <span>{{ formatCurrency(cartStore.total) }}</span>
               </div>
             </div>
 
@@ -136,6 +136,7 @@ import { useRouter } from 'vue-router'
 import { useCartStore } from '../stores/cart'
 import { useAuthStore } from '../stores/auth'
 import axios from 'axios'
+import { formatCurrency } from '../utils/currency'
 
 export default {
   name: 'Checkout',
@@ -214,7 +215,8 @@ export default {
       shippingAddress,
       paymentMethod,
       processing,
-      processOrder
+      processOrder,
+      formatCurrency
     }
   }
 }

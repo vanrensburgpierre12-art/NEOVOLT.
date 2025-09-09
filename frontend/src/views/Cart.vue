@@ -31,7 +31,7 @@
             />
             <div class="item-info">
               <h3 class="item-name">{{ item.name }}</h3>
-              <p class="item-price">${{ item.price }}</p>
+              <p class="item-price">{{ formatCurrency(item.price) }}</p>
             </div>
             <div class="quantity-controls">
               <button 
@@ -58,7 +58,7 @@
               </button>
             </div>
             <div class="item-subtotal">
-              ${{ item.subtotal.toFixed(2) }}
+              {{ formatCurrency(item.subtotal) }}
             </div>
             <button 
               @click="removeItem(item.id)"
@@ -75,7 +75,7 @@
             <h3>Order Summary</h3>
             <div class="summary-row">
               <span>Subtotal:</span>
-              <span>${{ cartStore.total.toFixed(2) }}</span>
+              <span>{{ formatCurrency(cartStore.total) }}</span>
             </div>
             <div class="summary-row">
               <span>Shipping:</span>
@@ -83,7 +83,7 @@
             </div>
             <div class="summary-row total">
               <span>Total:</span>
-              <span>${{ cartStore.total.toFixed(2) }}</span>
+              <span>{{ formatCurrency(cartStore.total) }}</span>
             </div>
             <router-link to="/checkout" class="btn btn-primary btn-lg w-100">
               Proceed to Checkout
@@ -101,6 +101,7 @@
 <script>
 import { onMounted } from 'vue'
 import { useCartStore } from '../stores/cart'
+import { formatCurrency } from '../utils/currency'
 
 export default {
   name: 'Cart',
@@ -130,7 +131,8 @@ export default {
       cartStore,
       updateQuantity,
       removeItem,
-      clearCart
+      clearCart,
+      formatCurrency
     }
   }
 }

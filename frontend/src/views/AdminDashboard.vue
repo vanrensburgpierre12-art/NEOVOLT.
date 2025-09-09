@@ -29,7 +29,7 @@
         <div class="stat-card">
           <div class="stat-icon">💰</div>
           <div class="stat-content">
-            <div class="stat-value">${{ dashboardStats.totalRevenue.toFixed(2) }}</div>
+            <div class="stat-value">{{ formatCurrency(dashboardStats.totalRevenue) }}</div>
             <div class="stat-label">Total Revenue</div>
           </div>
         </div>
@@ -53,7 +53,7 @@
           >
             <div>{{ order.order_number }}</div>
             <div>{{ order.first_name }} {{ order.last_name }}</div>
-            <div>${{ order.total_amount }}</div>
+            <div>{{ formatCurrency(order.total_amount) }}</div>
             <div class="status-badge" :class="order.status">
               {{ order.status.toUpperCase() }}
             </div>
@@ -101,6 +101,7 @@
 <script>
 import { ref, onMounted } from 'vue'
 import axios from 'axios'
+import { formatCurrency } from '../utils/currency'
 
 export default {
   name: 'AdminDashboard',
@@ -147,7 +148,8 @@ export default {
       recentOrders,
       lowStockProducts,
       orderStatusDistribution,
-      formatDate
+      formatDate,
+      formatCurrency
     }
   }
 }

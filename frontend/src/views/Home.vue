@@ -26,7 +26,22 @@
               class="product-image"
             />
             <h3 class="product-name">{{ product.name }}</h3>
-            <p class="product-price">${{ product.price }}</p>
+            <div class="product-price-rating">
+              <p class="product-price">{{ formatCurrency(product.price) }}</p>
+              <div v-if="product.average_rating > 0" class="product-rating">
+                <div class="stars">
+                  <span 
+                    v-for="star in 5" 
+                    :key="star" 
+                    class="star"
+                    :class="{ 'filled': star <= Math.round(product.average_rating) }"
+                  >
+                    ★
+                  </span>
+                </div>
+                <span class="rating-text">({{ product.review_count }})</span>
+              </div>
+            </div>
             <button class="btn btn-primary">VIEW</button>
           </div>
         </div>
@@ -68,6 +83,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useProductsStore } from '../stores/products'
+import { formatCurrency } from '../utils/currency'
 
 export default {
   name: 'Home',
@@ -95,7 +111,8 @@ export default {
 
     return {
       featuredProducts,
-      goToProduct
+      goToProduct,
+      formatCurrency
     }
   }
 }
@@ -204,11 +221,46 @@ export default {
   color: #ffffff;
 }
 
+.product-price-rating {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 15px;
+}
+
 .product-price {
   font-size: 1.5rem;
   font-weight: 900;
   color: #00ffff;
-  margin-bottom: 15px;
+  margin: 0;
+}
+
+.product-rating {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: center;
+}
+
+.stars {
+  display: flex;
+  gap: 2px;
+}
+
+.star {
+  font-size: 1rem;
+  color: rgba(255, 255, 255, 0.3);
+  transition: all 0.3s ease;
+}
+
+.star.filled {
+  color: #ffc107;
+  text-shadow: 0 0 5px #ffc107;
+}
+
+.rating-text {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.9rem;
 }
 
 .features {

@@ -39,7 +39,7 @@
             <div class="customer-name">{{ order.first_name }} {{ order.last_name }}</div>
             <div class="customer-email">{{ order.email }}</div>
           </div>
-          <div class="order-amount">${{ order.total_amount }}</div>
+          <div class="order-amount">{{ formatCurrency(order.total_amount) }}</div>
           <div class="order-status">
             <select 
               :value="order.status" 
@@ -151,8 +151,8 @@
                 >
                   <div class="item-name">{{ item.name }}</div>
                   <div class="item-quantity">Qty: {{ item.quantity }}</div>
-                  <div class="item-price">${{ item.price }}</div>
-                  <div class="item-total">${{ (item.price * item.quantity).toFixed(2) }}</div>
+                  <div class="item-price">{{ formatCurrency(item.price) }}</div>
+                  <div class="item-total">{{ formatCurrency(item.price * item.quantity) }}</div>
                 </div>
               </div>
             </div>
@@ -167,6 +167,7 @@
 <script>
 import { ref, onMounted } from 'vue'
 import axios from 'axios'
+import { formatCurrency } from '../utils/currency'
 
 export default {
   name: 'AdminOrders',
@@ -252,7 +253,8 @@ export default {
       goToPage,
       updateOrderStatus,
       viewOrder,
-      closeOrderModal
+      closeOrderModal,
+      formatCurrency
     }
   }
 }

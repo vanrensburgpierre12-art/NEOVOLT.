@@ -181,7 +181,7 @@
                     <div class="order-date">{{ formatDate(order.created_at) }}</div>
                   </div>
                   <div class="order-details">
-                    <div class="order-amount">${{ order.total_amount }}</div>
+                    <div class="order-amount">{{ formatCurrency(order.total_amount) }}</div>
                     <div class="order-status" :class="order.status">
                       {{ order.status.toUpperCase() }}
                     </div>
@@ -284,6 +284,7 @@
 <script>
 import { ref, onMounted, computed } from 'vue'
 import axios from 'axios'
+import { formatCurrency } from '../utils/currency'
 
 export default {
   name: 'AdminUsers',
@@ -576,7 +577,8 @@ export default {
       closeUserFormModal,
       bulkActivate,
       bulkDeactivate,
-      bulkDelete
+      bulkDelete,
+      formatCurrency
     }
   }
 }

@@ -99,7 +99,7 @@
           </div>
           <div class="product-name">{{ product.name }}</div>
           <div class="product-category">{{ product.category_name }}</div>
-          <div class="product-price">${{ product.price }}</div>
+          <div class="product-price">{{ formatCurrency(product.price) }}</div>
           <div class="product-stock" :class="{ 'low-stock': product.stock_quantity < 10 }">
             {{ product.stock_quantity }}
           </div>
@@ -204,6 +204,7 @@
 <script>
 import { ref, onMounted, computed } from 'vue'
 import axios from 'axios'
+import { formatCurrency } from '../utils/currency'
 
 export default {
   name: 'AdminProducts',
@@ -440,7 +441,8 @@ export default {
       toggleProductStatus,
       bulkActivate,
       bulkDeactivate,
-      bulkDelete
+      bulkDelete,
+      formatCurrency
     }
   }
 }
