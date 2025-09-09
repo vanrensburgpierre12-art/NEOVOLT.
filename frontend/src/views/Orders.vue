@@ -37,7 +37,7 @@
           <div class="order-details">
             <div class="order-amount">
               <span class="amount-label">Total:</span>
-              <span class="amount-value">${{ order.total_amount }}</span>
+              <span class="amount-value">{{ formatCurrency(order.total_amount) }}</span>
             </div>
             <div class="order-items">
               <span class="items-label">{{ order.item_count }} item(s)</span>
@@ -83,6 +83,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
+import { formatCurrency } from '../utils/currency'
 
 export default {
   name: 'Orders',
@@ -143,7 +144,8 @@ export default {
       pagination,
       formatDate,
       goToOrder,
-      goToPage
+      goToPage,
+      formatCurrency
     }
   }
 }

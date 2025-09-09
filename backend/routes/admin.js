@@ -68,6 +68,23 @@ router.get('/dashboard', async (req, res) => {
   }
 });
 
+// Get all categories
+router.get('/categories', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT c.*, COUNT(p.id) as product_count
+      FROM categories c
+      LEFT JOIN products p ON c.id = p.category_id AND p.is_active = true
+      GROUP BY c.id
+      ORDER BY c.name
+    `);
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Get categories error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // Get all users
 router.get('/users', async (req, res) => {
   try {
@@ -221,6 +238,149 @@ router.delete('/categories/:categoryId', async (req, res) => {
     res.json({ message: 'Category deleted successfully' });
   } catch (error) {
     console.error('Delete category error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Create user
+router.post('/users', async (req, res) => {
+  try {
+    const { firstName, lastName, email, phone, role, password, isActive } = req.body;
+
+    if (!firstName || !lastName || !email || !role) {
+      return res.status(400).json({ message: 'Missing required fields' });
+    }
+
+    // Check if user already exists
+    const existingUser = await pool.query(
+      'SELECT id FROM users WHERE email = $1',
+      [email]
+    );
+
+    if (existingUser.rows.length > 0) {
+      return res.status(400).json({ message: 'User with this email already exists' });
+    }
+
+    // Hash password if provided
+    let passwordHash = null;
+    if (password) {
+      const bcrypt = require('bcryptjs');
+      const saltRounds = 10;
+      passwordHash = await bcrypt.hash(password, saltRounds);
+    }
+
+    const result = await pool.query(
+      'INSERT INTO users (first_name, last_name, email, phone, role, password_hash, is_active) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, first_name, last_name, email, phone, role, is_active, created_at',
+      [firstName, lastName, email, phone, role, passwordHash, isActive !== false]
+    );
+
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error('Create user error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Update user
+router.put('/users/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { firstName, lastName, email, phone, role, password, isActive } = req.body;
+
+    const updates = {};
+    const values = [];
+    let paramCount = 0;
+
+    if (firstName !== undefined) {
+      paramCount++;
+      updates.first_name = firstName;
+      values.push(firstName);
+    }
+
+    if (lastName !== undefined) {
+      paramCount++;
+      updates.last_name = lastName;
+      values.push(lastName);
+    }
+
+    if (email !== undefined) {
+      paramCount++;
+      updates.email = email;
+      values.push(email);
+    }
+
+    if (phone !== undefined) {
+      paramCount++;
+      updates.phone = phone;
+      values.push(phone);
+    }
+
+    if (role !== undefined) {
+      paramCount++;
+      updates.role = role;
+      values.push(role);
+    }
+
+    if (isActive !== undefined) {
+      paramCount++;
+      updates.is_active = isActive;
+      values.push(isActive);
+    }
+
+    if (password) {
+      const bcrypt = require('bcryptjs');
+      const saltRounds = 10;
+      const passwordHash = await bcrypt.hash(password, saltRounds);
+      paramCount++;
+      updates.password_hash = passwordHash;
+      values.push(passwordHash);
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ message: 'No fields to update' });
+    }
+
+    values.push(userId);
+    const updateFields = Object.keys(updates).map((key, index) => `${key} = $${index + 1}`).join(', ');
+    const query = `UPDATE users SET ${updateFields}, updated_at = CURRENT_TIMESTAMP WHERE id = $${paramCount + 1} RETURNING id, first_name, last_name, email, phone, role, is_active, created_at`;
+
+    const result = await pool.query(query, values);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Update user error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Delete user
+router.delete('/users/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    // Check if user has orders
+    const orderCountResult = await pool.query(
+      'SELECT COUNT(*) FROM orders WHERE user_id = $1',
+      [userId]
+    );
+
+    if (parseInt(orderCountResult.rows[0].count) > 0) {
+      return res.status(400).json({ message: 'Cannot delete user with existing orders' });
+    }
+
+    const result = await pool.query('DELETE FROM users WHERE id = $1 RETURNING *', [userId]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    res.json({ message: 'User deleted successfully' });
+  } catch (error) {
+    console.error('Delete user error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });

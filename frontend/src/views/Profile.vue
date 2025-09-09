@@ -112,7 +112,7 @@
               <div class="stat-label">Total Orders</div>
             </div>
             <div class="stat-card">
-              <div class="stat-value">${{ userStats.totalSpent.toFixed(2) }}</div>
+              <div class="stat-value">{{ formatCurrency(userStats.totalSpent) }}</div>
               <div class="stat-label">Total Spent</div>
             </div>
             <div class="stat-card">
@@ -130,6 +130,7 @@
 import { ref, onMounted } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import axios from 'axios'
+import { formatCurrency } from '../utils/currency'
 
 export default {
   name: 'Profile',
@@ -231,7 +232,8 @@ export default {
       updating,
       changingPassword,
       updateProfile,
-      changePassword
+      changePassword,
+      formatCurrency
     }
   }
 }

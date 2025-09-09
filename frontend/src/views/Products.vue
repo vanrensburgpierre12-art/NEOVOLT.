@@ -50,7 +50,22 @@
             <p class="product-category">{{ product.category_name }}</p>
             <p class="product-description">{{ product.description }}</p>
             <div class="product-footer">
-              <span class="product-price">${{ product.price }}</span>
+              <div class="product-price-rating">
+                <span class="product-price">{{ formatCurrency(product.price) }}</span>
+                <div v-if="product.average_rating > 0" class="product-rating">
+                  <div class="stars">
+                    <span 
+                      v-for="star in 5" 
+                      :key="star" 
+                      class="star"
+                      :class="{ 'filled': star <= Math.round(product.average_rating) }"
+                    >
+                      ★
+                    </span>
+                  </div>
+                  <span class="rating-text">({{ product.review_count }})</span>
+                </div>
+              </div>
               <span class="product-stock" :class="{ 'low-stock': product.stock_quantity < 10 }">
                 {{ product.stock_quantity > 0 ? `${product.stock_quantity} in stock` : 'Out of stock' }}
               </span>
@@ -102,6 +117,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useProductsStore } from '../stores/products'
 import { useCartStore } from '../stores/cart'
+import { formatCurrency } from '../utils/currency'
 
 export default {
   name: 'Products',
@@ -172,7 +188,8 @@ export default {
       clearFilters,
       goToPage,
       goToProduct,
-      addToCart
+      addToCart,
+      formatCurrency
     }
   }
 }
@@ -295,9 +312,42 @@ export default {
 
 .product-footer {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-direction: column;
+  gap: 10px;
   margin-bottom: 15px;
+}
+
+.product-price-rating {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.product-rating {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.stars {
+  display: flex;
+  gap: 2px;
+}
+
+.star {
+  font-size: 1rem;
+  color: rgba(255, 255, 255, 0.3);
+  transition: all 0.3s ease;
+}
+
+.star.filled {
+  color: #ffc107;
+  text-shadow: 0 0 5px #ffc107;
+}
+
+.rating-text {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.9rem;
 }
 
 .product-price {
