@@ -1,10 +1,20 @@
 <template>
   <div class="admin-users">
     <div class="container">
-      <h1 class="page-title">User Management</h1>
+      <div class="admin-header">
+        <h1 class="page-title">User Management</h1>
+        <div class="header-actions">
+          <button @click="showBulkActions = !showBulkActions" class="btn btn-secondary">
+            Bulk Actions
+          </button>
+          <button @click="showAddUser = true" class="btn btn-primary">
+            Add New User
+          </button>
+        </div>
+      </div>
 
-      <!-- Search -->
-      <div class="search-section">
+      <!-- Search and Filters -->
+      <div class="filters-section">
         <div class="search-group">
           <input 
             v-model="searchQuery" 
@@ -14,11 +24,51 @@
             class="form-input"
           />
         </div>
+        <div class="filter-group">
+          <select v-model="roleFilter" @change="filterUsers" class="form-input">
+            <option value="">All Roles</option>
+            <option value="customer">Customer</option>
+            <option value="admin">Admin</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <select v-model="statusFilter" @change="filterUsers" class="form-input">
+            <option value="">All Status</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Bulk Actions Panel -->
+      <div v-if="showBulkActions" class="bulk-actions-panel">
+        <div class="bulk-actions-content">
+          <span class="selected-count">{{ selectedUsers.length }} users selected</span>
+          <div class="bulk-buttons">
+            <button @click="bulkActivate" class="btn btn-success btn-sm" :disabled="selectedUsers.length === 0">
+              Activate
+            </button>
+            <button @click="bulkDeactivate" class="btn btn-warning btn-sm" :disabled="selectedUsers.length === 0">
+              Deactivate
+            </button>
+            <button @click="bulkDelete" class="btn btn-danger btn-sm" :disabled="selectedUsers.length === 0">
+              Delete
+            </button>
+          </div>
+        </div>
       </div>
 
       <!-- Users Table -->
       <div class="users-table">
         <div class="table-header">
+          <div>
+            <input 
+              type="checkbox" 
+              @change="toggleAllSelection" 
+              :checked="allSelected"
+              class="bulk-checkbox"
+            />
+          </div>
           <div>Name</div>
           <div>Email</div>
           <div>Phone</div>
@@ -30,18 +80,34 @@
           v-for="user in users" 
           :key="user.id" 
           class="table-row"
-          @click="viewUser(user.id)"
         >
-          <div class="user-name">{{ user.first_name }} {{ user.last_name }}</div>
-          <div class="user-email">{{ user.email }}</div>
-          <div class="user-phone">{{ user.phone || 'N/A' }}</div>
-          <div class="user-role" :class="user.role">
+          <div @click.stop>
+            <input 
+              type="checkbox" 
+              :value="user.id"
+              v-model="selectedUsers"
+              class="bulk-checkbox"
+            />
+          </div>
+          <div class="user-name" @click="viewUser(user.id)">{{ user.first_name }} {{ user.last_name }}</div>
+          <div class="user-email" @click="viewUser(user.id)">{{ user.email }}</div>
+          <div class="user-phone" @click="viewUser(user.id)">{{ user.phone || 'N/A' }}</div>
+          <div class="user-role" :class="user.role" @click="viewUser(user.id)">
             {{ user.role.toUpperCase() }}
           </div>
-          <div class="user-joined">{{ formatDate(user.created_at) }}</div>
+          <div class="user-joined" @click="viewUser(user.id)">{{ formatDate(user.created_at) }}</div>
           <div class="user-actions" @click.stop>
             <button @click="viewUser(user.id)" class="btn btn-secondary btn-sm">
               View
+            </button>
+            <button @click="editUser(user)" class="btn btn-warning btn-sm">
+              Edit
+            </button>
+            <button @click="toggleUserStatus(user)" class="btn btn-info btn-sm">
+              {{ user.is_active ? 'Deactivate' : 'Activate' }}
+            </button>
+            <button @click="deleteUser(user.id)" class="btn btn-danger btn-sm">
+              Delete
             </button>
           </div>
         </div>
@@ -127,12 +193,96 @@
           <button @click="closeUserModal" class="btn btn-primary">Close</button>
         </div>
       </div>
+
+      <!-- Add/Edit User Modal -->
+      <div v-if="showAddUser || editingUser" class="modal-overlay" @click="closeUserFormModal">
+        <div class="modal-content" @click.stop>
+          <h2>{{ editingUser ? 'Edit User' : 'Add New User' }}</h2>
+          <form @submit.prevent="saveUser" class="user-form">
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">First Name *</label>
+                <input 
+                  v-model="userForm.firstName" 
+                  type="text" 
+                  class="form-input" 
+                  required 
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Last Name *</label>
+                <input 
+                  v-model="userForm.lastName" 
+                  type="text" 
+                  class="form-input" 
+                  required 
+                />
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Email *</label>
+              <input 
+                v-model="userForm.email" 
+                type="email" 
+                class="form-input" 
+                required 
+              />
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Phone</label>
+                <input 
+                  v-model="userForm.phone" 
+                  type="tel" 
+                  class="form-input"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Role *</label>
+                <select v-model="userForm.role" class="form-input" required>
+                  <option value="customer">Customer</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </div>
+            </div>
+
+            <div v-if="!editingUser" class="form-group">
+              <label class="form-label">Password *</label>
+              <input 
+                v-model="userForm.password" 
+                type="password" 
+                class="form-input" 
+                :required="!editingUser"
+              />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Status</label>
+              <select v-model="userForm.isActive" class="form-input">
+                <option :value="true">Active</option>
+                <option :value="false">Inactive</option>
+              </select>
+            </div>
+
+            <div class="form-actions">
+              <button type="button" @click="closeUserFormModal" class="btn btn-secondary">
+                Cancel
+              </button>
+              <button type="submit" :disabled="saving" class="btn btn-primary">
+                {{ saving ? 'Saving...' : 'Save User' }}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
 <script>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import axios from 'axios'
 
 export default {
@@ -146,6 +296,28 @@ export default {
       limit: 10,
       total: 0,
       pages: 0
+    })
+    const showBulkActions = ref(false)
+    const selectedUsers = ref([])
+    const showAddUser = ref(false)
+    const editingUser = ref(null)
+    const saving = ref(false)
+    const roleFilter = ref('')
+    const statusFilter = ref('')
+    const allUsers = ref([])
+
+    const userForm = ref({
+      firstName: '',
+      lastName: '',
+      email: '',
+      phone: '',
+      role: 'customer',
+      password: '',
+      isActive: true
+    })
+
+    const allSelected = computed(() => {
+      return users.value.length > 0 && selectedUsers.value.length === users.value.length
     })
 
     const formatDate = (dateString) => {
@@ -167,6 +339,7 @@ export default {
         }
 
         const response = await axios.get('/api/admin/users', { params })
+        allUsers.value = response.data.users
         users.value = response.data.users
         pagination.value = response.data.pagination
       } catch (error) {
@@ -198,6 +371,178 @@ export default {
       selectedUser.value = null
     }
 
+    const filterUsers = () => {
+      let filtered = [...allUsers.value]
+
+      if (searchQuery.value) {
+        const query = searchQuery.value.toLowerCase()
+        filtered = filtered.filter(user => 
+          user.first_name.toLowerCase().includes(query) ||
+          user.last_name.toLowerCase().includes(query) ||
+          user.email.toLowerCase().includes(query)
+        )
+      }
+
+      if (roleFilter.value) {
+        filtered = filtered.filter(user => user.role === roleFilter.value)
+      }
+
+      if (statusFilter.value) {
+        const isActive = statusFilter.value === 'active'
+        filtered = filtered.filter(user => user.is_active === isActive)
+      }
+
+      users.value = filtered
+    }
+
+    const toggleAllSelection = () => {
+      if (allSelected.value) {
+        selectedUsers.value = []
+      } else {
+        selectedUsers.value = users.value.map(u => u.id)
+      }
+    }
+
+    const editUser = (user) => {
+      editingUser.value = user
+      userForm.value = {
+        firstName: user.first_name,
+        lastName: user.last_name,
+        email: user.email,
+        phone: user.phone || '',
+        role: user.role,
+        password: '',
+        isActive: user.is_active
+      }
+    }
+
+    const toggleUserStatus = async (user) => {
+      try {
+        await axios.put(`/api/admin/users/${user.id}`, {
+          is_active: !user.is_active
+        })
+        await loadUsers()
+      } catch (error) {
+        console.error('Failed to toggle user status:', error)
+        alert('Failed to update user status')
+      }
+    }
+
+    const deleteUser = async (userId) => {
+      if (confirm('Are you sure you want to delete this user?')) {
+        try {
+          await axios.delete(`/api/admin/users/${userId}`)
+          await loadUsers()
+        } catch (error) {
+          console.error('Failed to delete user:', error)
+          alert('Failed to delete user')
+        }
+      }
+    }
+
+    const saveUser = async () => {
+      saving.value = true
+
+      try {
+        const userData = {
+          first_name: userForm.value.firstName,
+          last_name: userForm.value.lastName,
+          email: userForm.value.email,
+          phone: userForm.value.phone,
+          role: userForm.value.role,
+          is_active: userForm.value.isActive
+        }
+
+        if (userForm.value.password) {
+          userData.password = userForm.value.password
+        }
+
+        if (editingUser.value) {
+          await axios.put(`/api/admin/users/${editingUser.value.id}`, userData)
+        } else {
+          await axios.post('/api/admin/users', userData)
+        }
+        
+        await loadUsers()
+        closeUserFormModal()
+      } catch (error) {
+        console.error('Failed to save user:', error)
+        alert('Failed to save user')
+      } finally {
+        saving.value = false
+      }
+    }
+
+    const closeUserFormModal = () => {
+      showAddUser.value = false
+      editingUser.value = null
+      userForm.value = {
+        firstName: '',
+        lastName: '',
+        email: '',
+        phone: '',
+        role: 'customer',
+        password: '',
+        isActive: true
+      }
+    }
+
+    const bulkActivate = async () => {
+      if (selectedUsers.value.length === 0) return
+      
+      try {
+        await Promise.all(
+          selectedUsers.value.map(id => 
+            axios.put(`/api/admin/users/${id}`, { is_active: true })
+          )
+        )
+        await loadUsers()
+        selectedUsers.value = []
+        showBulkActions.value = false
+      } catch (error) {
+        console.error('Failed to activate users:', error)
+        alert('Failed to activate users')
+      }
+    }
+
+    const bulkDeactivate = async () => {
+      if (selectedUsers.value.length === 0) return
+      
+      try {
+        await Promise.all(
+          selectedUsers.value.map(id => 
+            axios.put(`/api/admin/users/${id}`, { is_active: false })
+          )
+        )
+        await loadUsers()
+        selectedUsers.value = []
+        showBulkActions.value = false
+      } catch (error) {
+        console.error('Failed to deactivate users:', error)
+        alert('Failed to deactivate users')
+      }
+    }
+
+    const bulkDelete = async () => {
+      if (selectedUsers.value.length === 0) return
+      
+      if (confirm(`Are you sure you want to delete ${selectedUsers.value.length} users?`)) {
+        try {
+          await Promise.all(
+            selectedUsers.value.map(id => 
+              axios.delete(`/api/admin/users/${id}`)
+            )
+          )
+          await loadUsers()
+          selectedUsers.value = []
+          showBulkActions.value = false
+        } catch (error) {
+          console.error('Failed to delete users:', error)
+          alert('Failed to delete users')
+        }
+      }
+    }
+
     onMounted(() => {
       loadUsers()
     })
@@ -207,12 +552,31 @@ export default {
       selectedUser,
       searchQuery,
       pagination,
+      showBulkActions,
+      selectedUsers,
+      showAddUser,
+      editingUser,
+      saving,
+      roleFilter,
+      statusFilter,
+      userForm,
+      allSelected,
       formatDate,
       loadUsers,
       searchUsers,
       goToPage,
       viewUser,
-      closeUserModal
+      closeUserModal,
+      filterUsers,
+      toggleAllSelection,
+      editUser,
+      toggleUserStatus,
+      deleteUser,
+      saveUser,
+      closeUserFormModal,
+      bulkActivate,
+      bulkDeactivate,
+      bulkDelete
     }
   }
 }
@@ -224,20 +588,72 @@ export default {
   min-height: 80vh;
 }
 
+.admin-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 40px;
+}
+
+.header-actions {
+  display: flex;
+  gap: 15px;
+}
+
 .page-title {
   font-size: 3rem;
   color: #00ffff;
   text-shadow: 0 0 20px #00ffff;
-  margin-bottom: 40px;
-  text-align: center;
+  margin-bottom: 0;
 }
 
-.search-section {
+.filters-section {
+  display: flex;
+  gap: 20px;
   margin-bottom: 30px;
+  padding: 20px;
+  background: rgba(26, 26, 46, 0.5);
+  border: 1px solid rgba(0, 255, 255, 0.2);
+  border-radius: 8px;
 }
 
 .search-group {
-  max-width: 400px;
+  flex: 1;
+  max-width: 300px;
+}
+
+.filter-group {
+  min-width: 150px;
+}
+
+.bulk-actions-panel {
+  background: rgba(0, 123, 255, 0.1);
+  border: 1px solid rgba(0, 123, 255, 0.3);
+  border-radius: 8px;
+  padding: 15px;
+  margin-bottom: 20px;
+}
+
+.bulk-actions-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.selected-count {
+  color: #007bff;
+  font-weight: 600;
+}
+
+.bulk-buttons {
+  display: flex;
+  gap: 10px;
+}
+
+.bulk-checkbox {
+  width: 18px;
+  height: 18px;
+  accent-color: #00ffff;
 }
 
 .users-table {
@@ -250,7 +666,7 @@ export default {
 
 .table-header {
   display: grid;
-  grid-template-columns: 200px 250px 150px 100px 150px 100px;
+  grid-template-columns: 50px 200px 250px 150px 100px 150px 200px;
   gap: 20px;
   padding: 20px;
   background: rgba(0, 0, 0, 0.3);
@@ -260,12 +676,11 @@ export default {
 
 .table-row {
   display: grid;
-  grid-template-columns: 200px 250px 150px 100px 150px 100px;
+  grid-template-columns: 50px 200px 250px 150px 100px 150px 200px;
   gap: 20px;
   padding: 20px;
   border-top: 1px solid rgba(0, 255, 255, 0.1);
   transition: all 0.3s ease;
-  cursor: pointer;
 }
 
 .table-row:hover {
@@ -309,7 +724,54 @@ export default {
 
 .user-actions {
   display: flex;
-  gap: 10px;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.user-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.form-label {
+  color: #00ffff;
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+.form-input {
+  padding: 12px;
+  background: rgba(26, 26, 46, 0.8);
+  border: 1px solid rgba(0, 255, 255, 0.3);
+  border-radius: 4px;
+  color: #ffffff;
+  font-size: 16px;
+  transition: all 0.3s ease;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: #00ffff;
+  box-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
+}
+
+.form-actions {
+  display: flex;
+  gap: 15px;
+  justify-content: flex-end;
+  margin-top: 20px;
 }
 
 .btn-sm {
@@ -486,6 +948,23 @@ export default {
 }
 
 @media (max-width: 768px) {
+  .admin-header {
+    flex-direction: column;
+    gap: 20px;
+    text-align: center;
+  }
+  
+  .filters-section {
+    flex-direction: column;
+    gap: 15px;
+  }
+  
+  .bulk-actions-content {
+    flex-direction: column;
+    gap: 15px;
+    text-align: center;
+  }
+  
   .table-header, .table-row {
     grid-template-columns: 1fr;
     gap: 10px;
@@ -509,6 +988,18 @@ export default {
   .pagination {
     flex-direction: column;
     gap: 10px;
+  }
+  
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+  
+  .form-actions {
+    flex-direction: column;
+  }
+  
+  .user-actions {
+    justify-content: center;
   }
 }
 </style>
