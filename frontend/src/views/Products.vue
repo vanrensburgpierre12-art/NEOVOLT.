@@ -4,23 +4,14 @@
       <div class="products-header">
         <h1 class="page-title">Products</h1>
         
-        <!-- Search Bar -->
-        <div class="search-section">
-          <div class="search-input-container">
-            <input 
-              v-model="searchQuery" 
-              @input="handleSearch"
-              type="text" 
-              placeholder="Search products..."
-              class="search-input"
-            />
-            <button @click="toggleFilters" class="btn btn-secondary">
-              {{ showFilters ? 'Hide Filters' : 'Show Filters' }}
-            </button>
-          </div>
-        </div>
+        <!-- Advanced Search -->
+        <AdvancedSearch
+          :categories="categories"
+          :price-bounds="priceBounds"
+          @search="handleAdvancedSearch"
+        />
 
-        <!-- Advanced Filters -->
+        <!-- Basic Filters (Fallback) -->
         <ProductFilters
           v-if="showFilters"
           :categories="categories"
@@ -87,6 +78,7 @@ import { formatCurrency } from '../utils/currency'
 import LazyImage from '../components/LazyImage.vue'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
 import ProductFilters from '../components/ProductFilters.vue'
+import AdvancedSearch from '../components/AdvancedSearch.vue'
 import WishlistButton from '../components/WishlistButton.vue'
 import MobileProductGrid from '../components/MobileProductGrid.vue'
 import { useMeta } from '../composables/useMeta'
@@ -97,6 +89,7 @@ export default {
     LazyImage,
     LoadingSpinner,
     ProductFilters,
+    AdvancedSearch,
     WishlistButton,
     MobileProductGrid
   },
@@ -110,6 +103,7 @@ export default {
     const searchQuery = ref('')
     const selectedCategory = ref('')
     const showFilters = ref(false)
+    const priceBounds = ref({ min: 0, max: 1000 })
 
     const products = computed(() => productsStore.products)
     const categories = computed(() => productsStore.categories)
@@ -118,6 +112,16 @@ export default {
 
     const handleSearch = () => {
       productsStore.setSearch(searchQuery.value)
+      productsStore.fetchProducts()
+    }
+
+    const handleAdvancedSearch = (searchData) => {
+      // Update store with advanced search data
+      productsStore.setSearch(searchData.query)
+      productsStore.setCategory(searchData.categories?.[0] || '')
+      productsStore.setPriceRange(searchData.priceRange?.min || '', searchData.priceRange?.max || '')
+      productsStore.setInStock(searchData.stockFilter === 'in-stock')
+      productsStore.setSortBy(searchData.sortBy)
       productsStore.fetchProducts()
     }
 
@@ -176,7 +180,9 @@ export default {
       searchQuery,
       selectedCategory,
       showFilters,
+      priceBounds,
       handleSearch,
+      handleAdvancedSearch,
       handleCategoryChange,
       toggleFilters,
       clearFilters,

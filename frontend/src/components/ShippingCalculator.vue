@@ -1,146 +1,314 @@
 <template>
   <div class="shipping-calculator">
-    <h3>Shipping Calculator</h3>
-    <div class="calculator-form">
-      <div class="form-row">
-        <div class="form-group">
-          <label>Weight (kg)</label>
-          <input 
-            v-model="weight" 
-            type="number" 
-            step="0.1" 
-            min="0.1" 
-            class="form-input"
-            placeholder="Enter package weight"
-          />
-        </div>
-        <div class="form-group">
-          <label>Service Type</label>
-          <select v-model="serviceType" class="form-input">
-            <option value="standard">Standard</option>
-            <option value="express">Express</option>
-            <option value="overnight">Overnight</option>
-          </select>
-        </div>
-      </div>
-      
-      <div class="form-row">
-        <div class="form-group">
-          <label>From City</label>
-          <input 
-            v-model="origin" 
-            type="text" 
-            class="form-input"
-            placeholder="e.g., Cape Town"
-          />
-        </div>
-        <div class="form-group">
-          <label>To City</label>
-          <input 
-            v-model="destination" 
-            type="text" 
-            class="form-input"
-            placeholder="e.g., Johannesburg"
-          />
-        </div>
-      </div>
-
-      <button 
-        @click="calculateShipping" 
-        :disabled="loading || !weight || !origin || !destination"
-        class="btn btn-secondary"
-      >
-        {{ loading ? 'Calculating...' : 'Calculate Shipping' }}
+    <div class="calculator-header">
+      <h3>Shipping Calculator</h3>
+      <button @click="toggleCalculator" class="btn btn-secondary btn-sm">
+        {{ showCalculator ? 'Hide' : 'Show' }} Calculator
       </button>
     </div>
 
-    <div v-if="rates.length > 0" class="shipping-rates">
-      <h4>Available Shipping Options</h4>
-      <div class="rates-list">
-        <div 
-          v-for="rate in rates" 
-          :key="rate.service" 
-          class="rate-item"
-        >
-          <div class="rate-info">
-            <h5>{{ rate.service }}</h5>
-            <p>{{ rate.description }}</p>
-            <span class="delivery-time">{{ rate.estimated_delivery }}</span>
-          </div>
-          <div class="rate-price">
-            {{ formatCurrency(rate.price) }}
-          </div>
+    <div v-if="showCalculator" class="calculator-content">
+      <!-- Origin Address (Fixed) -->
+      <div class="address-section">
+        <h4>From (Our Warehouse)</h4>
+        <div class="address-display">
+          <div class="address-line">Neovolt Electronics</div>
+          <div class="address-line">123 Industrial Street</div>
+          <div class="address-line">Frankfurt, 60311</div>
+          <div class="address-line">Germany</div>
         </div>
       </div>
-    </div>
 
-    <div v-if="error" class="error-message">
-      {{ error }}
+      <!-- Destination Address -->
+      <div class="address-section">
+        <h4>To (Your Address)</h4>
+        <form @submit.prevent="calculateShipping" class="shipping-form">
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Country *</label>
+              <select v-model="destination.country" class="form-input" required>
+                <option value="">Select Country</option>
+                <option value="DE">Germany</option>
+                <option value="NL">Netherlands</option>
+                <option value="BE">Belgium</option>
+                <option value="FR">France</option>
+                <option value="GB">United Kingdom</option>
+                <option value="US">United States</option>
+                <option value="CA">Canada</option>
+                <option value="AU">Australia</option>
+                <option value="ZA">South Africa</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Postal Code *</label>
+              <input 
+                v-model="destination.postalCode" 
+                type="text" 
+                class="form-input" 
+                required 
+                placeholder="e.g., 10001"
+              />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">City *</label>
+            <input 
+              v-model="destination.city" 
+              type="text" 
+              class="form-input" 
+              required 
+              placeholder="e.g., New York"
+            />
+          </div>
+
+          <!-- Package Details -->
+          <div class="package-section">
+            <h4>Package Details</h4>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Weight (kg) *</label>
+                <input 
+                  v-model="packageDetails.weight" 
+                  type="number" 
+                  class="form-input" 
+                  required 
+                  min="0.1"
+                  step="0.1"
+                  placeholder="0.5"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Service Type</label>
+                <select v-model="packageDetails.serviceType" class="form-input">
+                  <option value="standard">Standard (5-7 days)</option>
+                  <option value="express">Express (2-3 days)</option>
+                  <option value="overnight">Overnight (1 day)</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Length (cm)</label>
+                <input 
+                  v-model="packageDetails.dimensions.length" 
+                  type="number" 
+                  class="form-input" 
+                  min="1"
+                  placeholder="30"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Width (cm)</label>
+                <input 
+                  v-model="packageDetails.dimensions.width" 
+                  type="number" 
+                  class="form-input" 
+                  min="1"
+                  placeholder="20"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Height (cm)</label>
+                <input 
+                  v-model="packageDetails.dimensions.height" 
+                  type="number" 
+                  class="form-input" 
+                  min="1"
+                  placeholder="10"
+                />
+              </div>
+            </div>
+          </div>
+
+          <!-- Calculate Button -->
+          <button 
+            type="submit" 
+            :disabled="calculating || !isFormValid"
+            class="btn btn-primary btn-lg w-100"
+          >
+            {{ calculating ? 'Calculating...' : 'Calculate Shipping' }}
+          </button>
+        </form>
+      </div>
+
+      <!-- Shipping Options Results -->
+      <div v-if="shippingOptions.length > 0" class="shipping-results">
+        <h4>Available Shipping Options</h4>
+        <div class="shipping-options">
+          <div 
+            v-for="option in shippingOptions" 
+            :key="option.id"
+            class="shipping-option"
+            :class="{ selected: selectedOption?.id === option.id }"
+            @click="selectOption(option)"
+          >
+            <div class="option-header">
+              <div class="option-name">{{ option.name }}</div>
+              <div class="option-price">{{ formatCurrency(option.price) }}</div>
+            </div>
+            <div class="option-details">
+              <div class="delivery-time">
+                <span class="label">Delivery:</span>
+                <span class="value">{{ option.deliveryTime }}</span>
+              </div>
+              <div class="tracking-info">
+                <span class="label">Tracking:</span>
+                <span class="value">{{ option.tracking ? 'Yes' : 'No' }}</span>
+              </div>
+              <div class="insurance-info">
+                <span class="label">Insurance:</span>
+                <span class="value">{{ option.insurance ? 'Included' : 'Not included' }}</span>
+              </div>
+            </div>
+            <div v-if="option.specialNotes" class="special-notes">
+              {{ option.specialNotes }}
+            </div>
+          </div>
+        </div>
+
+        <div v-if="selectedOption" class="selected-option-actions">
+          <button @click="applyShipping" class="btn btn-primary">
+            Use This Shipping Option
+          </button>
+        </div>
+      </div>
+
+      <!-- Error State -->
+      <div v-if="error" class="error-message">
+        <div class="error-icon">⚠️</div>
+        <div class="error-content">
+          <h4>Unable to Calculate Shipping</h4>
+          <p>{{ error }}</p>
+          <button @click="retryCalculation" class="btn btn-secondary">
+            Try Again
+          </button>
+        </div>
+      </div>
+
+      <!-- Loading State -->
+      <div v-if="calculating" class="loading-state">
+        <div class="loading-spinner"></div>
+        <p>Calculating shipping options...</p>
+      </div>
     </div>
   </div>
 </template>
 
 <script>
-import { ref } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import axios from 'axios'
 import { formatCurrency } from '../utils/currency'
 
 export default {
   name: 'ShippingCalculator',
-  setup() {
-    const weight = ref(1.0)
-    const serviceType = ref('standard')
-    const origin = ref('Cape Town')
-    const destination = ref('')
-    const rates = ref([])
-    const loading = ref(false)
+  emits: ['shipping-selected'],
+  setup(props, { emit }) {
+    const showCalculator = ref(false)
+    const calculating = ref(false)
     const error = ref('')
+    const shippingOptions = ref([])
+    const selectedOption = ref(null)
+
+    // Form data
+    const destination = ref({
+      country: '',
+      postalCode: '',
+      city: ''
+    })
+
+    const packageDetails = ref({
+      weight: 1,
+      serviceType: 'standard',
+      dimensions: {
+        length: 30,
+        width: 20,
+        height: 10
+      }
+    })
+
+    // Computed properties
+    const isFormValid = computed(() => {
+      return destination.value.country && 
+             destination.value.postalCode && 
+             destination.value.city &&
+             packageDetails.value.weight > 0
+    })
+
+    // Methods
+    const toggleCalculator = () => {
+      showCalculator.value = !showCalculator.value
+    }
 
     const calculateShipping = async () => {
-      if (!weight.value || !origin.value || !destination.value) {
-        error.value = 'Please fill in all required fields'
-        return
-      }
+      if (!isFormValid.value) return
 
-      loading.value = true
+      calculating.value = true
       error.value = ''
+      shippingOptions.value = []
 
       try {
-        const response = await axios.post('/api/shipping/rates', {
-          origin: {
-            city: origin.value,
-            country: 'ZA'
-          },
-          destination: {
-            city: destination.value,
-            country: 'ZA'
-          },
-          weight: parseFloat(weight.value),
-          dimensions: {
-            length: 30,
-            width: 20,
-            height: 10
-          }
+        const response = await axios.post('/api/shipping/calculate', {
+          destination: destination.value,
+          packageDetails: packageDetails.value
         })
 
-        rates.value = response.data.rates || []
+        shippingOptions.value = response.data.options || []
+        
+        if (shippingOptions.value.length === 0) {
+          error.value = 'No shipping options available for this destination'
+        }
       } catch (err) {
         console.error('Shipping calculation error:', err)
-        error.value = 'Failed to calculate shipping rates. Please try again.'
+        error.value = err.response?.data?.message || 'Failed to calculate shipping rates'
       } finally {
-        loading.value = false
+        calculating.value = false
       }
     }
 
+    const selectOption = (option) => {
+      selectedOption.value = option
+    }
+
+    const applyShipping = () => {
+      if (selectedOption.value) {
+        emit('shipping-selected', selectedOption.value)
+      }
+    }
+
+    const retryCalculation = () => {
+      error.value = ''
+      calculateShipping()
+    }
+
+    // Load saved destination from localStorage
+    onMounted(() => {
+      const savedDestination = localStorage.getItem('shippingDestination')
+      if (savedDestination) {
+        try {
+          const data = JSON.parse(savedDestination)
+          destination.value = { ...destination.value, ...data }
+        } catch (error) {
+          console.error('Failed to load saved destination:', error)
+        }
+      }
+    })
+
     return {
-      weight,
-      serviceType,
-      origin,
-      destination,
-      rates,
-      loading,
+      showCalculator,
+      calculating,
       error,
+      shippingOptions,
+      selectedOption,
+      destination,
+      packageDetails,
+      isFormValid,
+      toggleCalculator,
       calculateShipping,
+      selectOption,
+      applyShipping,
+      retryCalculation,
       formatCurrency
     }
   }
@@ -152,45 +320,85 @@ export default {
   background: rgba(26, 26, 46, 0.8);
   border: 1px solid rgba(0, 255, 255, 0.3);
   border-radius: 12px;
-  padding: 30px;
-  margin: 20px 0;
-}
-
-.shipping-calculator h3 {
-  color: #00ffff;
-  margin-bottom: 20px;
-  font-size: 1.5rem;
-}
-
-.calculator-form {
+  padding: 20px;
   margin-bottom: 30px;
+}
+
+.calculator-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.calculator-header h3 {
+  color: #00ffff;
+  margin: 0;
+  font-size: 1.3rem;
+}
+
+.calculator-content {
+  border-top: 1px solid rgba(0, 255, 255, 0.2);
+  padding-top: 20px;
+}
+
+.address-section {
+  margin-bottom: 30px;
+}
+
+.address-section h4 {
+  color: #ffffff;
+  margin-bottom: 15px;
+  font-size: 1.1rem;
+}
+
+.address-display {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(0, 255, 255, 0.2);
+  border-radius: 8px;
+  padding: 15px;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.address-line {
+  margin-bottom: 5px;
+}
+
+.address-line:last-child {
+  margin-bottom: 0;
+}
+
+.shipping-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
 }
 
 .form-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 20px;
-  margin-bottom: 20px;
+  gap: 15px;
 }
 
 .form-group {
   display: flex;
   flex-direction: column;
+  gap: 5px;
 }
 
-.form-group label {
+.form-label {
   color: #00ffff;
-  margin-bottom: 8px;
   font-weight: 500;
+  font-size: 14px;
 }
 
 .form-input {
-  padding: 12px;
+  padding: 10px 12px;
   background: rgba(26, 26, 46, 0.8);
   border: 1px solid rgba(0, 255, 255, 0.3);
-  border-radius: 4px;
+  border-radius: 6px;
   color: #ffffff;
-  font-size: 16px;
+  font-size: 14px;
   transition: all 0.3s ease;
 }
 
@@ -200,69 +408,176 @@ export default {
   box-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
 }
 
-.shipping-rates {
-  margin-top: 20px;
+.form-input::placeholder {
+  color: rgba(255, 255, 255, 0.5);
 }
 
-.shipping-rates h4 {
+.package-section {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(0, 255, 255, 0.2);
+  border-radius: 8px;
+  padding: 20px;
+}
+
+.package-section h4 {
   color: #00ffff;
   margin-bottom: 15px;
+  font-size: 1.1rem;
+}
+
+.btn-lg {
+  padding: 12px 24px;
+  font-size: 1.1rem;
+}
+
+.w-100 {
+  width: 100%;
+}
+
+.shipping-results {
+  margin-top: 30px;
+}
+
+.shipping-results h4 {
+  color: #00ffff;
+  margin-bottom: 20px;
   font-size: 1.2rem;
 }
 
-.rates-list {
+.shipping-options {
   display: flex;
   flex-direction: column;
   gap: 15px;
+  margin-bottom: 20px;
 }
 
-.rate-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 15px;
+.shipping-option {
   background: rgba(0, 0, 0, 0.3);
-  border: 1px solid rgba(0, 255, 255, 0.2);
+  border: 1px solid rgba(0, 255, 255, 0.3);
   border-radius: 8px;
+  padding: 20px;
+  cursor: pointer;
   transition: all 0.3s ease;
 }
 
-.rate-item:hover {
+.shipping-option:hover {
   border-color: #00ffff;
   box-shadow: 0 0 10px rgba(0, 255, 255, 0.2);
 }
 
-.rate-info h5 {
+.shipping-option.selected {
+  border-color: #00ffff;
+  background: rgba(0, 255, 255, 0.1);
+  box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+}
+
+.option-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.option-name {
   color: #ffffff;
-  margin-bottom: 5px;
+  font-weight: 600;
   font-size: 1.1rem;
 }
 
-.rate-info p {
-  color: rgba(255, 255, 255, 0.8);
-  font-size: 0.9rem;
-  margin-bottom: 5px;
+.option-price {
+  color: #00ffff;
+  font-weight: 700;
+  font-size: 1.3rem;
 }
 
-.delivery-time {
-  color: #00ffff;
-  font-size: 0.8rem;
+.option-details {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.delivery-time, .tracking-info, .insurance-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.label {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.value {
+  color: #ffffff;
+  font-size: 14px;
   font-weight: 500;
 }
 
-.rate-price {
-  color: #00ffff;
-  font-size: 1.2rem;
-  font-weight: 700;
+.special-notes {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 12px;
+  font-style: italic;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(0, 255, 255, 0.2);
+}
+
+.selected-option-actions {
+  text-align: center;
 }
 
 .error-message {
-  color: #fa755a;
-  background: rgba(250, 117, 90, 0.1);
-  border: 1px solid rgba(250, 117, 90, 0.3);
-  border-radius: 4px;
-  padding: 10px;
-  margin-top: 15px;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  background: rgba(255, 107, 107, 0.1);
+  border: 1px solid #ff6b6b;
+  border-radius: 8px;
+  padding: 20px;
+  margin-top: 20px;
+}
+
+.error-icon {
+  font-size: 2rem;
+  flex-shrink: 0;
+}
+
+.error-content h4 {
+  color: #ff6b6b;
+  margin: 0 0 10px 0;
+  font-size: 1.1rem;
+}
+
+.error-content p {
+  color: rgba(255, 255, 255, 0.8);
+  margin: 0 0 15px 0;
+}
+
+.loading-state {
+  text-align: center;
+  padding: 40px 20px;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(0, 255, 255, 0.3);
+  border-top: 3px solid #00ffff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 20px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.loading-state p {
+  color: rgba(255, 255, 255, 0.8);
+  margin: 0;
 }
 
 @media (max-width: 768px) {
@@ -270,10 +585,13 @@ export default {
     grid-template-columns: 1fr;
   }
   
-  .rate-item {
+  .option-details {
+    grid-template-columns: 1fr;
+  }
+  
+  .error-message {
     flex-direction: column;
-    align-items: flex-start;
-    gap: 10px;
+    text-align: center;
   }
 }
 </style>

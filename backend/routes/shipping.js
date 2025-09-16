@@ -1,48 +1,173 @@
 const express = require('express');
-const courierGuy = require('../services/courierguy');
-const pool = require('../config/database');
+const courierGuyService = require('../services/courierguy');
 const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
 
-// Get shipping rates
-router.post('/rates', authenticateToken, async (req, res) => {
+// Calculate shipping rates
+router.post('/calculate', async (req, res) => {
   try {
-    const { origin, destination, weight, dimensions } = req.body;
+    const { destination, packageDetails } = req.body;
 
-    if (!origin || !destination || !weight) {
-      return res.status(400).json({ 
-        message: 'Origin, destination, and weight are required' 
-      });
+    // Validate required fields
+    if (!destination || !packageDetails) {
+      return res.status(400).json({ message: 'Destination and package details are required' });
     }
 
-    const rates = await courierGuy.getShippingRates(origin, destination, weight, dimensions);
-    
+    if (!destination.country || !destination.postalCode || !destination.city) {
+      return res.status(400).json({ message: 'Country, postal code, and city are required' });
+    }
+
+    if (!packageDetails.weight || packageDetails.weight <= 0) {
+      return res.status(400).json({ message: 'Valid weight is required' });
+    }
+
+    // Set default dimensions if not provided
+    const dimensions = {
+      length: packageDetails.dimensions?.length || 30,
+      width: packageDetails.dimensions?.width || 20,
+      height: packageDetails.dimensions?.height || 10
+    };
+
+    // Our warehouse location (fixed)
+    const origin = {
+      address: '123 Industrial Street',
+      city: 'Frankfurt',
+      postal_code: '60311',
+      country: 'DE'
+    };
+
+    // Get shipping rates from CourierGuy
+    const rates = await courierGuyService.getShippingRates(
+      origin,
+      destination,
+      packageDetails.weight,
+      dimensions
+    );
+
+    // Format response with different service options
+    const shippingOptions = [
+      {
+        id: 'standard',
+        name: 'Standard Delivery',
+        price: rates.standard?.price || 15.99,
+        deliveryTime: '5-7 business days',
+        tracking: true,
+        insurance: true,
+        specialNotes: 'Most economical option'
+      },
+      {
+        id: 'express',
+        name: 'Express Delivery',
+        price: rates.express?.price || 25.99,
+        deliveryTime: '2-3 business days',
+        tracking: true,
+        insurance: true,
+        specialNotes: 'Faster delivery for urgent orders'
+      },
+      {
+        id: 'overnight',
+        name: 'Overnight Delivery',
+        price: rates.overnight?.price || 45.99,
+        deliveryTime: '1 business day',
+        tracking: true,
+        insurance: true,
+        specialNotes: 'Next business day delivery'
+      }
+    ];
+
+    // Add estimated delivery dates
+    const estimatedDelivery = await courierGuyService.getEstimatedDelivery(
+      origin,
+      destination,
+      packageDetails.serviceType || 'standard'
+    );
+
     res.json({
       success: true,
-      rates: rates
+      options: shippingOptions,
+      estimatedDelivery: estimatedDelivery.estimated_delivery,
+      origin,
+      destination,
+      packageDetails: {
+        ...packageDetails,
+        dimensions
+      }
     });
+
   } catch (error) {
-    console.error('Get shipping rates error:', error);
+    console.error('Shipping calculation error:', error);
     res.status(500).json({ 
-      success: false,
-      message: error.message || 'Failed to get shipping rates' 
+      message: 'Failed to calculate shipping rates',
+      error: error.message 
     });
   }
 });
 
-// Create shipment
+// Get available shipping services
+router.get('/services', async (req, res) => {
+  try {
+    const { origin, destination } = req.query;
+
+    if (!origin || !destination) {
+      return res.status(400).json({ message: 'Origin and destination are required' });
+    }
+
+    const services = await courierGuyService.getAvailableServices(origin, destination);
+
+    res.json({
+      success: true,
+      services: services.services || []
+    });
+
+  } catch (error) {
+    console.error('Get services error:', error);
+    res.status(500).json({ 
+      message: 'Failed to get available services',
+      error: error.message 
+    });
+  }
+});
+
+// Track shipment
+router.get('/track/:trackingNumber', async (req, res) => {
+  try {
+    const { trackingNumber } = req.params;
+
+    if (!trackingNumber) {
+      return res.status(400).json({ message: 'Tracking number is required' });
+    }
+
+    const trackingData = await courierGuyService.trackShipment(trackingNumber);
+
+    res.json({
+      success: true,
+      tracking: trackingData
+    });
+
+  } catch (error) {
+    console.error('Tracking error:', error);
+    res.status(500).json({ 
+      message: 'Failed to track shipment',
+      error: error.message 
+    });
+  }
+});
+
+// Create shipment (for orders)
 router.post('/create', authenticateToken, async (req, res) => {
   try {
-    const { orderId } = req.body;
+    const { orderId, shippingOption, trackingData } = req.body;
 
-    // Get order details
-    const orderResult = await pool.query(`
-      SELECT o.*, u.first_name, u.last_name, u.email, u.phone
-      FROM orders o
-      JOIN users u ON o.user_id = u.id
-      WHERE o.id = $1 AND o.user_id = $2
-    `, [orderId, req.user.id]);
+    if (!orderId || !shippingOption) {
+      return res.status(400).json({ message: 'Order ID and shipping option are required' });
+    }
+
+    // Get order details from database
+    const orderResult = await pool.query(
+      'SELECT * FROM orders WHERE id = $1',
+      [orderId]
+    );
 
     if (orderResult.rows.length === 0) {
       return res.status(404).json({ message: 'Order not found' });
@@ -50,196 +175,211 @@ router.post('/create', authenticateToken, async (req, res) => {
 
     const order = orderResult.rows[0];
 
-    // Get order items
-    const itemsResult = await pool.query(`
-      SELECT oi.*, p.name, p.weight, p.dimensions
-      FROM order_items oi
-      JOIN products p ON oi.product_id = p.id
-      WHERE oi.order_id = $1
-    `, [orderId]);
-
-    const items = itemsResult.rows.map(item => ({
-      description: item.name,
-      quantity: item.quantity,
-      weight: item.weight || 0.5, // Default weight if not specified
-      value: parseFloat(item.price) * item.quantity
-    }));
-
-    // Calculate total weight
-    const totalWeight = items.reduce((sum, item) => sum + (item.weight * item.quantity), 0);
-
     // Prepare shipment data
     const shipmentData = {
       order_number: order.order_number,
       customer: {
         name: `${order.first_name} ${order.last_name}`,
         email: order.email,
-        phone: order.phone || ''
+        phone: order.phone
       },
-      pickup_address: {
+      pickup: {
         name: 'Neovolt Electronics',
-        address: process.env.COMPANY_ADDRESS || '123 Business Street',
-        city: process.env.COMPANY_CITY || 'Cape Town',
-        postal_code: process.env.COMPANY_POSTAL_CODE || '8000',
-        country: 'ZA',
-        phone: process.env.COMPANY_PHONE || '+27123456789'
+        address: '123 Industrial Street',
+        city: 'Frankfurt',
+        postal_code: '60311',
+        country: 'DE',
+        phone: '+49 69 12345678'
       },
-      delivery_address: {
-        name: order.shipping_address.name,
-        address: order.shipping_address.address,
-        city: order.shipping_address.city,
-        postal_code: order.shipping_address.postal_code,
-        country: order.shipping_address.country || 'ZA',
-        phone: order.shipping_address.phone || ''
+      delivery: {
+        name: `${order.first_name} ${order.last_name}`,
+        address: order.shipping_address,
+        city: order.shipping_city,
+        postal_code: order.shipping_postal_code,
+        country: order.shipping_country,
+        phone: order.phone
       },
-      items: items,
-      service_type: req.body.service_type || 'standard',
-      special_instructions: req.body.special_instructions || ''
+      items: order.items || [],
+      service_type: shippingOption.id,
+      special_instructions: order.special_instructions || ''
     };
 
-    const shipment = await courierGuy.createShipment(shipmentData);
+    // Create shipment with CourierGuy
+    const shipment = await courierGuyService.createShipment(shipmentData);
 
     // Update order with tracking information
     await pool.query(
-      'UPDATE orders SET tracking_number = $1, shipping_status = $2 WHERE id = $3',
+      'UPDATE orders SET tracking_number = $1, shipping_status = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3',
       [shipment.tracking_number, 'shipped', orderId]
     );
 
     res.json({
       success: true,
       shipment: {
-        tracking_number: shipment.tracking_number,
+        trackingNumber: shipment.tracking_number,
         status: shipment.status,
-        estimated_delivery: shipment.estimated_delivery
+        estimatedDelivery: shipment.estimated_delivery
       }
     });
+
   } catch (error) {
     console.error('Create shipment error:', error);
     res.status(500).json({ 
-      success: false,
-      message: error.message || 'Failed to create shipment' 
+      message: 'Failed to create shipment',
+      error: error.message 
     });
   }
 });
 
-// Track shipment
-router.get('/track/:trackingNumber', authenticateToken, async (req, res) => {
+// Get shipping zones and rates
+router.get('/zones', async (req, res) => {
   try {
-    const { trackingNumber } = req.params;
-
-    const trackingData = await courierGuy.trackShipment(trackingNumber);
+    const zones = [
+      {
+        name: 'Germany',
+        code: 'DE',
+        countries: ['DE'],
+        rates: {
+          standard: 5.99,
+          express: 12.99,
+          overnight: 24.99
+        }
+      },
+      {
+        name: 'EU Zone',
+        code: 'EU',
+        countries: ['NL', 'BE', 'FR', 'AT', 'IT', 'ES', 'PT'],
+        rates: {
+          standard: 12.99,
+          express: 19.99,
+          overnight: 34.99
+        }
+      },
+      {
+        name: 'UK & Ireland',
+        code: 'UK',
+        countries: ['GB', 'IE'],
+        rates: {
+          standard: 15.99,
+          express: 24.99,
+          overnight: 39.99
+        }
+      },
+      {
+        name: 'North America',
+        code: 'NA',
+        countries: ['US', 'CA'],
+        rates: {
+          standard: 25.99,
+          express: 39.99,
+          overnight: 59.99
+        }
+      },
+      {
+        name: 'Rest of World',
+        code: 'ROW',
+        countries: ['AU', 'ZA', 'JP', 'KR'],
+        rates: {
+          standard: 35.99,
+          express: 49.99,
+          overnight: 79.99
+        }
+      }
+    ];
 
     res.json({
       success: true,
-      tracking: trackingData
+      zones
     });
+
   } catch (error) {
-    console.error('Track shipment error:', error);
+    console.error('Get zones error:', error);
     res.status(500).json({ 
-      success: false,
-      message: error.message || 'Failed to track shipment' 
+      message: 'Failed to get shipping zones',
+      error: error.message 
     });
   }
 });
 
-// Get delivery status
-router.get('/status/:trackingNumber', authenticateToken, async (req, res) => {
+// Calculate shipping cost for cart
+router.post('/cart-cost', async (req, res) => {
   try {
-    const { trackingNumber } = req.params;
+    const { items, destination } = req.body;
 
-    const status = await courierGuy.getDeliveryStatus(trackingNumber);
-
-    res.json({
-      success: true,
-      status: status
-    });
-  } catch (error) {
-    console.error('Get delivery status error:', error);
-    res.status(500).json({ 
-      success: false,
-      message: error.message || 'Failed to get delivery status' 
-    });
-  }
-});
-
-// Cancel shipment
-router.post('/cancel/:trackingNumber', authenticateToken, async (req, res) => {
-  try {
-    const { trackingNumber } = req.params;
-    const { reason } = req.body;
-
-    const result = await courierGuy.cancelShipment(trackingNumber, reason);
-
-    // Update order status
-    await pool.query(
-      'UPDATE orders SET shipping_status = $1 WHERE tracking_number = $2',
-      ['cancelled', trackingNumber]
-    );
-
-    res.json({
-      success: true,
-      message: 'Shipment cancelled successfully',
-      result: result
-    });
-  } catch (error) {
-    console.error('Cancel shipment error:', error);
-    res.status(500).json({ 
-      success: false,
-      message: error.message || 'Failed to cancel shipment' 
-    });
-  }
-});
-
-// Get available services
-router.get('/services', authenticateToken, async (req, res) => {
-  try {
-    const { origin, destination } = req.query;
-
-    if (!origin || !destination) {
-      return res.status(400).json({ 
-        message: 'Origin and destination are required' 
-      });
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ message: 'Items are required' });
     }
 
-    const services = await courierGuy.getAvailableServices(origin, destination);
-
-    res.json({
-      success: true,
-      services: services
-    });
-  } catch (error) {
-    console.error('Get services error:', error);
-    res.status(500).json({ 
-      success: false,
-      message: error.message || 'Failed to get available services' 
-    });
-  }
-});
-
-// Get delivery estimate
-router.get('/estimate', authenticateToken, async (req, res) => {
-  try {
-    const { origin, destination, service_type } = req.query;
-
-    if (!origin || !destination) {
-      return res.status(400).json({ 
-        message: 'Origin and destination are required' 
-      });
+    if (!destination) {
+      return res.status(400).json({ message: 'Destination is required' });
     }
 
-    const estimate = await courierGuy.getEstimatedDelivery(origin, destination, service_type);
+    // Calculate total weight and dimensions
+    let totalWeight = 0;
+    let maxLength = 0, maxWidth = 0, totalHeight = 0;
+
+    for (const item of items) {
+      const itemWeight = (item.weight || 0.5) * item.quantity;
+      totalWeight += itemWeight;
+
+      const itemLength = item.length || 20;
+      const itemWidth = item.width || 15;
+      const itemHeight = item.height || 5;
+
+      maxLength = Math.max(maxLength, itemLength);
+      maxWidth = Math.max(maxWidth, itemWidth);
+      totalHeight += itemHeight * item.quantity;
+    }
+
+    // Calculate shipping cost based on weight and destination
+    const baseRate = getBaseRate(destination.country);
+    const weightMultiplier = Math.ceil(totalWeight / 1); // €1 per kg
+    const shippingCost = baseRate + (weightMultiplier - 1) * 2;
 
     res.json({
       success: true,
-      estimate: estimate
+      cost: {
+        standard: Math.round(shippingCost * 100) / 100,
+        express: Math.round(shippingCost * 1.5 * 100) / 100,
+        overnight: Math.round(shippingCost * 2.5 * 100) / 100
+      },
+      weight: totalWeight,
+      dimensions: {
+        length: maxLength,
+        width: maxWidth,
+        height: totalHeight
+      }
     });
+
   } catch (error) {
-    console.error('Get delivery estimate error:', error);
+    console.error('Cart shipping cost error:', error);
     res.status(500).json({ 
-      success: false,
-      message: error.message || 'Failed to get delivery estimate' 
+      message: 'Failed to calculate shipping cost',
+      error: error.message 
     });
   }
 });
+
+// Helper function to get base rate by country
+function getBaseRate(countryCode) {
+  const rates = {
+    'DE': 5.99,
+    'NL': 8.99,
+    'BE': 8.99,
+    'FR': 9.99,
+    'AT': 9.99,
+    'IT': 11.99,
+    'ES': 12.99,
+    'PT': 12.99,
+    'GB': 14.99,
+    'IE': 14.99,
+    'US': 24.99,
+    'CA': 24.99,
+    'AU': 34.99,
+    'ZA': 29.99
+  };
+
+  return rates[countryCode] || 19.99; // Default rate for other countries
+}
 
 module.exports = router;
