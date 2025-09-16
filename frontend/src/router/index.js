@@ -14,6 +14,7 @@ import AdminOrders from '../views/AdminOrders.vue'
 import AdminUsers from '../views/AdminUsers.vue'
 import AdminCategories from '../views/AdminCategories.vue'
 import AdminNewsletters from '../views/AdminNewsletters.vue'
+import AdminFinance from '../views/AdminFinance.vue'
 import Wishlist from '../views/Wishlist.vue'
 import PaymentSuccess from '../views/PaymentSuccess.vue'
 import PaymentCancel from '../views/PaymentCancel.vue'
@@ -109,6 +110,12 @@ const routes = [
     path: '/admin/newsletters',
     name: 'AdminNewsletters',
     component: AdminNewsletters,
+    meta: { requiresAuth: true, requiresAdmin: true }
+  },
+  {
+    path: '/admin/finance',
+    name: 'AdminFinance',
+    component: AdminFinance,
     meta: { requiresAuth: true, requiresAdmin: true }
   },
   {

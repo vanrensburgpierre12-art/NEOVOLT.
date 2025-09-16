@@ -20,6 +20,8 @@ const uploadRoutes = require('./routes/upload');
 const sitemapRoutes = require('./routes/sitemap');
 const recommendationRoutes = require('./routes/recommendations');
 const adminBulkRoutes = require('./routes/admin-bulk');
+const yocoRoutes = require('./routes/yoco');
+const financeRoutes = require('./routes/finance');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -84,6 +86,8 @@ app.use('/api/newsletters', newsletterRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/recommendations', recommendationRoutes);
 app.use('/api/admin', adminBulkRoutes);
+app.use('/api/yoco', yocoRoutes);
+app.use('/api/finance', financeRoutes);
 app.use('/', sitemapRoutes);
 
 // Health check endpoint

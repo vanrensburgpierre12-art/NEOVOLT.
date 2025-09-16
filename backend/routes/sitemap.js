@@ -6,28 +6,42 @@ const router = express.Router();
 // Generate sitemap.xml
 router.get('/sitemap.xml', async (req, res) => {
   try {
-    // Get all products
-    const productsResult = await pool.query('SELECT id, name, updated_at FROM products WHERE is_active = true');
+    // Get all products with more details
+    const productsResult = await pool.query(`
+      SELECT p.id, p.name, p.updated_at, p.created_at, c.name as category_name
+      FROM products p 
+      LEFT JOIN categories c ON p.category_id = c.id 
+      WHERE p.is_active = true
+      ORDER BY p.updated_at DESC
+    `);
     const products = productsResult.rows;
 
     // Get all categories
-    const categoriesResult = await pool.query('SELECT id, name FROM categories');
+    const categoriesResult = await pool.query('SELECT id, name, created_at FROM categories ORDER BY name');
     const categories = categoriesResult.rows;
 
     const baseUrl = process.env.FRONTEND_URL || 'http://localhost:650';
     const currentDate = new Date().toISOString();
 
     let sitemap = `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">`;
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1"
+        xmlns:news="http://www.google.com/schemas/sitemap-news/0.9">`;
 
-    // Add static pages
+    // Add static pages with better priorities
     const staticPages = [
       { url: '/', priority: '1.0', changefreq: 'daily' },
       { url: '/products', priority: '0.9', changefreq: 'daily' },
-      { url: '/login', priority: '0.5', changefreq: 'monthly' },
-      { url: '/register', priority: '0.5', changefreq: 'monthly' },
-      { url: '/cart', priority: '0.6', changefreq: 'weekly' },
-      { url: '/checkout', priority: '0.6', changefreq: 'weekly' }
+      { url: '/about', priority: '0.7', changefreq: 'monthly' },
+      { url: '/contact', priority: '0.6', changefreq: 'monthly' },
+      { url: '/shipping', priority: '0.6', changefreq: 'monthly' },
+      { url: '/returns', priority: '0.6', changefreq: 'monthly' },
+      { url: '/privacy', priority: '0.4', changefreq: 'yearly' },
+      { url: '/terms', priority: '0.4', changefreq: 'yearly' },
+      { url: '/login', priority: '0.3', changefreq: 'monthly' },
+      { url: '/register', priority: '0.3', changefreq: 'monthly' },
+      { url: '/cart', priority: '0.5', changefreq: 'weekly' },
+      { url: '/checkout', priority: '0.5', changefreq: 'weekly' }
     ];
 
     staticPages.forEach(page => {
@@ -40,7 +54,7 @@ router.get('/sitemap.xml', async (req, res) => {
   </url>`;
     });
 
-    // Add product pages
+    // Add product pages with images
     products.forEach(product => {
       const lastmod = new Date(product.updated_at).toISOString();
       sitemap += `
@@ -49,6 +63,11 @@ router.get('/sitemap.xml', async (req, res) => {
     <lastmod>${lastmod}</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
+    <image:image>
+      <image:loc>${baseUrl}/api/placeholder/400/300</image:loc>
+      <image:title>${product.name}</image:title>
+      <image:caption>${product.name} - High-quality German electrical connector</image:caption>
+    </image:image>
   </url>`;
     });
 

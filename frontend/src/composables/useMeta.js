@@ -32,28 +32,40 @@ export function useMeta() {
     if (metaData.description) setDescription(metaData.description)
     if (metaData.keywords) setKeywords(metaData.keywords)
     if (metaData.image) setImage(metaData.image)
+    
+    // Set additional SEO meta tags
+    if (metaData.canonical) updateMetaTag('canonical', metaData.canonical, 'link', 'href')
+    if (metaData.robots) updateMetaTag('robots', metaData.robots)
+    if (metaData.author) updateMetaTag('author', metaData.author)
+    if (metaData.publishedTime) updateMetaTag('article:published_time', metaData.publishedTime)
+    if (metaData.modifiedTime) updateMetaTag('article:modified_time', metaData.modifiedTime)
+    if (metaData.section) updateMetaTag('article:section', metaData.section)
+    if (metaData.tags) updateMetaTag('article:tag', metaData.tags)
   }
 
   const updateDocumentTitle = () => {
     document.title = title.value
   }
 
-  const updateMetaTag = (property, content) => {
+  const updateMetaTag = (property, content, tagName = 'meta', attribute = 'content') => {
     // Update or create meta tag
-    let metaTag = document.querySelector(`meta[property="${property}"]`) || 
-                  document.querySelector(`meta[name="${property}"]`)
+    let metaTag = document.querySelector(`${tagName}[property="${property}"]`) || 
+                  document.querySelector(`${tagName}[name="${property}"]`) ||
+                  document.querySelector(`${tagName}[rel="${property}"]`)
     
     if (!metaTag) {
-      metaTag = document.createElement('meta')
-      if (property.startsWith('og:') || property.startsWith('twitter:')) {
+      metaTag = document.createElement(tagName)
+      if (property.startsWith('og:') || property.startsWith('twitter:') || property.startsWith('article:')) {
         metaTag.setAttribute('property', property)
+      } else if (property === 'canonical') {
+        metaTag.setAttribute('rel', property)
       } else {
         metaTag.setAttribute('name', property)
       }
       document.head.appendChild(metaTag)
     }
     
-    metaTag.setAttribute('content', content)
+    metaTag.setAttribute(attribute, content)
   }
 
   const initializeMeta = () => {

@@ -47,6 +47,7 @@
                 <router-link to="/admin/categories" class="admin-menu-item">Categories</router-link>
                 <router-link to="/admin/users" class="admin-menu-item">Users</router-link>
                 <router-link to="/admin/orders" class="admin-menu-item">Orders</router-link>
+                <router-link to="/admin/finance" class="admin-menu-item">Finance</router-link>
                 <router-link to="/admin/newsletters" class="admin-menu-item">Newsletters</router-link>
               </div>
             </div>
