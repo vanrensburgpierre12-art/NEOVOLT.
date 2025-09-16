@@ -178,12 +178,39 @@
             </div>
 
             <div class="form-group">
-              <label class="form-label">Image URL</label>
-              <input 
-                v-model="productForm.image_url" 
-                type="url" 
-                class="form-input" 
-              />
+              <label class="form-label">Product Image</label>
+              <div class="image-upload-section">
+                <!-- File Upload -->
+                <div class="file-upload-container">
+                  <input 
+                    ref="fileInput"
+                    type="file" 
+                    @change="handleFileSelect"
+                    accept="image/*"
+                    class="file-input"
+                    id="product-image"
+                  />
+                  <label for="product-image" class="file-upload-label">
+                    <span v-if="!selectedFile">Choose Image File</span>
+                    <span v-else>{{ selectedFile.name }}</span>
+                  </label>
+                </div>
+                
+                <!-- Image Preview -->
+                <div v-if="imagePreview" class="image-preview">
+                  <img :src="imagePreview" alt="Product preview" />
+                  <button type="button" @click="removeImage" class="remove-image-btn">×</button>
+                </div>
+                
+                <!-- Or URL Input -->
+                <div class="or-divider">OR</div>
+                <input 
+                  v-model="productForm.image_url" 
+                  type="url" 
+                  class="form-input" 
+                  placeholder="Enter image URL"
+                />
+              </div>
             </div>
 
             <div class="form-actions">
@@ -230,6 +257,10 @@ export default {
       image_url: ''
     })
 
+    const selectedFile = ref(null)
+    const imagePreview = ref(null)
+    const fileInput = ref(null)
+
     const allSelected = computed(() => {
       return products.value.length > 0 && selectedProducts.value.length === products.value.length
     })
@@ -263,6 +294,37 @@ export default {
         category_id: product.category_id,
         image_url: product.image_url || ''
       }
+      
+      // Reset file selection and preview
+      selectedFile.value = null
+      imagePreview.value = product.image_url || null
+      if (fileInput.value) {
+        fileInput.value.value = ''
+      }
+    }
+
+    const handleFileSelect = (event) => {
+      const file = event.target.files[0]
+      if (file) {
+        selectedFile.value = file
+        productForm.value.image_url = '' // Clear URL when file is selected
+        
+        // Create preview
+        const reader = new FileReader()
+        reader.onload = (e) => {
+          imagePreview.value = e.target.result
+        }
+        reader.readAsDataURL(file)
+      }
+    }
+
+    const removeImage = () => {
+      selectedFile.value = null
+      imagePreview.value = null
+      productForm.value.image_url = ''
+      if (fileInput.value) {
+        fileInput.value.value = ''
+      }
     }
 
     const deleteProduct = async (productId) => {
@@ -281,10 +343,32 @@ export default {
       saving.value = true
 
       try {
+        const formData = new FormData()
+        
+        // Add form fields
+        Object.keys(productForm.value).forEach(key => {
+          if (productForm.value[key] !== null && productForm.value[key] !== '') {
+            formData.append(key, productForm.value[key])
+          }
+        })
+        
+        // Add file if selected
+        if (selectedFile.value) {
+          formData.append('image', selectedFile.value)
+        }
+
         if (editingProduct.value) {
-          await axios.put(`/api/products/${editingProduct.value.id}`, productForm.value)
+          await axios.put(`/api/products/${editingProduct.value.id}`, formData, {
+            headers: {
+              'Content-Type': 'multipart/form-data'
+            }
+          })
         } else {
-          await axios.post('/api/products', productForm.value)
+          await axios.post('/api/products', formData, {
+            headers: {
+              'Content-Type': 'multipart/form-data'
+            }
+          })
         }
         
         await loadProducts()
@@ -307,6 +391,13 @@ export default {
         stock_quantity: 0,
         category_id: '',
         image_url: ''
+      }
+      
+      // Reset file selection
+      selectedFile.value = null
+      imagePreview.value = null
+      if (fileInput.value) {
+        fileInput.value.value = ''
       }
     }
 
@@ -431,6 +522,9 @@ export default {
       categoryFilter,
       statusFilter,
       allSelected,
+      selectedFile,
+      imagePreview,
+      fileInput,
       editProduct,
       deleteProduct,
       saveProduct,
@@ -442,6 +536,8 @@ export default {
       bulkActivate,
       bulkDeactivate,
       bulkDelete,
+      handleFileSelect,
+      removeImage,
       formatCurrency
     }
   }
@@ -719,5 +815,107 @@ export default {
   .product-actions {
     justify-content: center;
   }
+}
+
+/* Image Upload Styles */
+.image-upload-section {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.file-upload-container {
+  position: relative;
+}
+
+.file-input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.file-upload-label {
+  display: inline-block;
+  padding: 10px 20px;
+  background: #f8f9fa;
+  border: 2px dashed #dee2e6;
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.3s ease;
+  font-size: 14px;
+  color: #6c757d;
+}
+
+.file-upload-label:hover {
+  background: #e9ecef;
+  border-color: #007bff;
+  color: #007bff;
+}
+
+.image-preview {
+  position: relative;
+  display: inline-block;
+  max-width: 200px;
+  max-height: 200px;
+}
+
+.image-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid #dee2e6;
+}
+
+.remove-image-btn {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #dc3545;
+  color: white;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.3s ease;
+}
+
+.remove-image-btn:hover {
+  background: #c82333;
+}
+
+.or-divider {
+  text-align: center;
+  color: #6c757d;
+  font-size: 14px;
+  position: relative;
+  margin: 10px 0;
+}
+
+.or-divider::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: #dee2e6;
+  z-index: 1;
+}
+
+.or-divider::after {
+  content: 'OR';
+  background: white;
+  padding: 0 15px;
+  position: relative;
+  z-index: 2;
 }
 </style>
