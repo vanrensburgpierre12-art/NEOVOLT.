@@ -8,7 +8,17 @@ const router = express.Router();
 // Get all products
 router.get('/', async (req, res) => {
   try {
-    const { category, search, page = 1, limit = 10 } = req.query;
+    const { 
+      category, 
+      search, 
+      page = 1, 
+      limit = 10, 
+      sortBy = 'created_at', 
+      sortOrder = 'desc',
+      priceMin,
+      priceMax,
+      inStock
+    } = req.query;
     const offset = (page - 1) * limit;
 
     let query = `
@@ -32,7 +42,30 @@ router.get('/', async (req, res) => {
       queryParams.push(`%${search}%`);
     }
 
-    query += ` ORDER BY p.created_at DESC LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}`;
+    if (priceMin) {
+      paramCount++;
+      query += ` AND p.price >= $${paramCount}`;
+      queryParams.push(parseFloat(priceMin));
+    }
+
+    if (priceMax) {
+      paramCount++;
+      query += ` AND p.price <= $${paramCount}`;
+      queryParams.push(parseFloat(priceMax));
+    }
+
+    if (inStock === 'true') {
+      query += ` AND p.stock_quantity > 0`;
+    }
+
+    // Add sorting
+    const validSortFields = ['name', 'price', 'created_at', 'stock_quantity'];
+    const validSortOrders = ['asc', 'desc'];
+    
+    const sortField = validSortFields.includes(sortBy) ? sortBy : 'created_at';
+    const sortDirection = validSortOrders.includes(sortOrder.toLowerCase()) ? sortOrder.toUpperCase() : 'DESC';
+    
+    query += ` ORDER BY p.${sortField} ${sortDirection} LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}`;
     queryParams.push(parseInt(limit), offset);
 
     const result = await pool.query(query, queryParams);
@@ -52,6 +85,22 @@ router.get('/', async (req, res) => {
       countParamCount++;
       countQuery += ` AND (p.name ILIKE $${countParamCount} OR p.description ILIKE $${countParamCount})`;
       countParams.push(`%${search}%`);
+    }
+
+    if (priceMin) {
+      countParamCount++;
+      countQuery += ` AND p.price >= $${countParamCount}`;
+      countParams.push(parseFloat(priceMin));
+    }
+
+    if (priceMax) {
+      countParamCount++;
+      countQuery += ` AND p.price <= $${countParamCount}`;
+      countParams.push(parseFloat(priceMax));
+    }
+
+    if (inStock === 'true') {
+      countQuery += ` AND p.stock_quantity > 0`;
     }
 
     const countResult = await pool.query(countQuery, countParams);

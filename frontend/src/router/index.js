@@ -14,6 +14,7 @@ import AdminOrders from '../views/AdminOrders.vue'
 import AdminUsers from '../views/AdminUsers.vue'
 import AdminCategories from '../views/AdminCategories.vue'
 import AdminNewsletters from '../views/AdminNewsletters.vue'
+import Wishlist from '../views/Wishlist.vue'
 
 const routes = [
   {
@@ -36,6 +37,11 @@ const routes = [
     path: '/cart',
     name: 'Cart',
     component: Cart
+  },
+  {
+    path: '/wishlist',
+    name: 'Wishlist',
+    component: Wishlist
   },
   {
     path: '/checkout',

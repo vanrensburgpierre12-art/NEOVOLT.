@@ -20,10 +20,11 @@
             class="product-card"
             @click="goToProduct(product.id)"
           >
-            <img 
+            <LazyImage 
               :src="product.image_url || '/api/placeholder/300/200'" 
               :alt="product.name"
-              class="product-image"
+              height="200px"
+              image-class="product-image"
             />
             <h3 class="product-name">{{ product.name }}</h3>
             <div class="product-price-rating">
@@ -84,9 +85,13 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useProductsStore } from '../stores/products'
 import { formatCurrency } from '../utils/currency'
+import LazyImage from '../components/LazyImage.vue'
 
 export default {
   name: 'Home',
+  components: {
+    LazyImage
+  },
   setup() {
     const router = useRouter()
     const productsStore = useProductsStore()

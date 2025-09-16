@@ -4,82 +4,47 @@
       <div class="products-header">
         <h1 class="page-title">Products</h1>
         
-        <!-- Filters -->
-        <div class="filters">
-          <div class="filter-group">
+        <!-- Search Bar -->
+        <div class="search-section">
+          <div class="search-input-container">
             <input 
               v-model="searchQuery" 
               @input="handleSearch"
               type="text" 
               placeholder="Search products..."
-              class="form-input"
+              class="search-input"
             />
-          </div>
-          <div class="filter-group">
-            <select v-model="selectedCategory" @change="handleCategoryChange" class="form-input">
-              <option value="">All Categories</option>
-              <option v-for="category in categories" :key="category.id" :value="category.name">
-                {{ category.name }}
-              </option>
-            </select>
-          </div>
-        </div>
-      </div>
-
-      <!-- Loading State -->
-      <div v-if="loading" class="loading-container">
-        <div class="loading"></div>
-        <p>Loading products...</p>
-      </div>
-
-      <!-- Products Grid -->
-      <div v-else class="product-grid">
-        <div 
-          v-for="product in products" 
-          :key="product.id" 
-          class="product-card"
-          @click="goToProduct(product.id)"
-        >
-          <img 
-            :src="product.image_url || '/api/placeholder/300/200'" 
-            :alt="product.name"
-            class="product-image"
-          />
-          <div class="product-info">
-            <h3 class="product-name">{{ product.name }}</h3>
-            <p class="product-category">{{ product.category_name }}</p>
-            <p class="product-description">{{ product.description }}</p>
-            <div class="product-footer">
-              <div class="product-price-rating">
-                <span class="product-price">{{ formatCurrency(product.price) }}</span>
-                <div v-if="product.average_rating > 0" class="product-rating">
-                  <div class="stars">
-                    <span 
-                      v-for="star in 5" 
-                      :key="star" 
-                      class="star"
-                      :class="{ 'filled': star <= Math.round(product.average_rating) }"
-                    >
-                      ★
-                    </span>
-                  </div>
-                  <span class="rating-text">({{ product.review_count }})</span>
-                </div>
-              </div>
-              <span class="product-stock" :class="{ 'low-stock': product.stock_quantity < 10 }">
-                {{ product.stock_quantity > 0 ? `${product.stock_quantity} in stock` : 'Out of stock' }}
-              </span>
-            </div>
-            <button 
-              class="btn btn-primary w-100"
-              :disabled="product.stock_quantity === 0"
-              @click.stop="addToCart(product.id)"
-            >
-              {{ product.stock_quantity > 0 ? 'Add to Cart' : 'Out of Stock' }}
+            <button @click="toggleFilters" class="btn btn-secondary">
+              {{ showFilters ? 'Hide Filters' : 'Show Filters' }}
             </button>
           </div>
         </div>
+
+        <!-- Advanced Filters -->
+        <ProductFilters
+          v-if="showFilters"
+          :categories="categories"
+          :sort-by="productsStore.filters.sortBy"
+          :sort-order="productsStore.filters.sortOrder"
+          :price-min="productsStore.filters.priceMin"
+          :price-max="productsStore.filters.priceMax"
+          :in-stock="productsStore.filters.inStock"
+          :category="productsStore.filters.category"
+          @update:sortBy="productsStore.setSortBy"
+          @update:sortOrder="productsStore.setSortOrder"
+          @update:priceMin="(value) => productsStore.setPriceRange(value, productsStore.filters.priceMax)"
+          @update:priceMax="(value) => productsStore.setPriceRange(productsStore.filters.priceMin, value)"
+          @update:inStock="productsStore.setInStock"
+          @update:category="productsStore.setCategory"
+          @clear-filters="clearFilters"
+        />
       </div>
+
+      <!-- Loading State -->
+      <LoadingSpinner v-if="loading" message="Loading products..." />
+
+      <!-- Products Grid -->
+      <MobileProductGrid v-else :products="products" />
 
       <!-- Empty State -->
       <div v-if="!loading && products.length === 0" class="empty-state">
@@ -117,17 +82,32 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useProductsStore } from '../stores/products'
 import { useCartStore } from '../stores/cart'
+import { useNotificationsStore } from '../stores/notifications'
 import { formatCurrency } from '../utils/currency'
+import LazyImage from '../components/LazyImage.vue'
+import LoadingSpinner from '../components/LoadingSpinner.vue'
+import ProductFilters from '../components/ProductFilters.vue'
+import WishlistButton from '../components/WishlistButton.vue'
+import MobileProductGrid from '../components/MobileProductGrid.vue'
 
 export default {
   name: 'Products',
+  components: {
+    LazyImage,
+    LoadingSpinner,
+    ProductFilters,
+    WishlistButton,
+    MobileProductGrid
+  },
   setup() {
     const router = useRouter()
     const productsStore = useProductsStore()
     const cartStore = useCartStore()
+    const notificationsStore = useNotificationsStore()
     
     const searchQuery = ref('')
     const selectedCategory = ref('')
+    const showFilters = ref(false)
 
     const products = computed(() => productsStore.products)
     const categories = computed(() => productsStore.categories)
@@ -142,6 +122,10 @@ export default {
     const handleCategoryChange = () => {
       productsStore.setCategory(selectedCategory.value)
       productsStore.fetchProducts()
+    }
+
+    const toggleFilters = () => {
+      showFilters.value = !showFilters.value
     }
 
     const clearFilters = () => {
@@ -163,11 +147,9 @@ export default {
     const addToCart = async (productId) => {
       const result = await cartStore.addToCart(productId)
       if (result.success) {
-        // Show success message
-        console.log('Added to cart')
+        notificationsStore.success('Added to Cart', 'Product has been added to your cart successfully!')
       } else {
-        // Show error message
-        console.error(result.message)
+        notificationsStore.error('Add to Cart Failed', result.message)
       }
     }
 
@@ -183,13 +165,16 @@ export default {
       pagination,
       searchQuery,
       selectedCategory,
+      showFilters,
       handleSearch,
       handleCategoryChange,
+      toggleFilters,
       clearFilters,
       goToPage,
       goToProduct,
       addToCart,
-      formatCurrency
+      formatCurrency,
+      productsStore
     }
   }
 }
@@ -213,16 +198,35 @@ export default {
   text-align: center;
 }
 
-.filters {
-  display: flex;
-  gap: 20px;
+.search-section {
   margin-bottom: 30px;
-  flex-wrap: wrap;
 }
 
-.filter-group {
+.search-input-container {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+}
+
+.search-input {
   flex: 1;
-  min-width: 200px;
+  padding: 12px 16px;
+  background: rgba(26, 26, 46, 0.8);
+  border: 1px solid rgba(0, 255, 255, 0.3);
+  border-radius: 8px;
+  color: #ffffff;
+  font-size: 16px;
+  transition: all 0.3s ease;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: #00ffff;
+  box-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
+}
+
+.search-input::placeholder {
+  color: rgba(255, 255, 255, 0.5);
 }
 
 .loading-container {
@@ -274,9 +278,16 @@ export default {
   transform: translateY(-10px);
 }
 
-.product-image {
+.product-image-container {
+  position: relative;
   width: 100%;
   height: 200px;
+  overflow: hidden;
+}
+
+.product-image {
+  width: 100%;
+  height: 100%;
   object-fit: cover;
 }
 
@@ -394,12 +405,13 @@ export default {
 }
 
 @media (max-width: 768px) {
-  .filters {
+  .search-input-container {
     flex-direction: column;
+    gap: 10px;
   }
   
-  .filter-group {
-    min-width: 100%;
+  .search-input {
+    width: 100%;
   }
   
   .product-grid {

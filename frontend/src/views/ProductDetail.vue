@@ -83,6 +83,9 @@
         </button>
       </div>
 
+      <!-- Recently Viewed -->
+      <RecentlyViewed />
+
       <!-- Related Products -->
       <div class="related-products">
         <h2>Related Products</h2>
@@ -125,15 +128,19 @@ import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useProductsStore } from '../stores/products'
 import { useCartStore } from '../stores/cart'
+import { useRecentlyViewedStore } from '../stores/recentlyViewed'
+import { useNotificationsStore } from '../stores/notifications'
 import { formatCurrency } from '../utils/currency'
 import ProductReviews from '../components/ProductReviews.vue'
 import ReviewForm from '../components/ReviewForm.vue'
+import RecentlyViewed from '../components/RecentlyViewed.vue'
 
 export default {
   name: 'ProductDetail',
   components: {
     ProductReviews,
-    ReviewForm
+    ReviewForm,
+    RecentlyViewed
   },
   props: {
     id: String
@@ -143,6 +150,8 @@ export default {
     const router = useRouter()
     const productsStore = useProductsStore()
     const cartStore = useCartStore()
+    const recentlyViewedStore = useRecentlyViewedStore()
+    const notificationsStore = useNotificationsStore()
     
     const product = ref(null)
     const loading = ref(true)
@@ -177,11 +186,9 @@ export default {
       addingToCart.value = false
       
       if (result.success) {
-        // Show success message
-        console.log('Added to cart')
+        notificationsStore.success('Added to Cart', 'Product has been added to your cart!')
       } else {
-        // Show error message
-        console.error(result.message)
+        notificationsStore.error('Add to Cart Failed', result.message)
       }
     }
 
@@ -198,6 +205,11 @@ export default {
       try {
         loading.value = true
         product.value = await productsStore.fetchProduct(productId)
+        
+        // Add to recently viewed
+        if (product.value) {
+          recentlyViewedStore.addProduct(product.value)
+        }
         
         // Load related products from the same category
         if (product.value.category_id) {
