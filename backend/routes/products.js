@@ -2,6 +2,7 @@ const express = require('express');
 const pool = require('../config/database');
 const { authenticateToken, requireAdmin } = require('../middleware/auth');
 const { body, validationResult } = require('express-validator');
+const { uploadSingle } = require('../middleware/upload');
 
 const router = express.Router();
 
@@ -152,79 +153,112 @@ router.get('/categories/all', async (req, res) => {
 });
 
 // Admin routes
-// Create product
+// Create product with image upload
 router.post('/', authenticateToken, requireAdmin, [
   body('name').notEmpty().trim(),
   body('description').notEmpty().trim(),
   body('price').isDecimal(),
   body('stock_quantity').isInt({ min: 0 }),
   body('category_id').isInt()
-], async (req, res) => {
-  try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+], (req, res) => {
+  uploadSingle(req, res, async (err) => {
+    try {
+      if (err) {
+        console.error('Upload error:', err);
+        return res.status(400).json({ 
+          message: err.message || 'File upload failed',
+          error: 'UPLOAD_ERROR'
+        });
+      }
+
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+      }
+
+      const { name, description, price, stock_quantity, category_id, specifications } = req.body;
+      
+      // Handle image URL - either from upload or provided URL
+      let image_url = null;
+      if (req.file) {
+        image_url = `/uploads/products/${req.file.filename}`;
+      } else if (req.body.image_url) {
+        image_url = req.body.image_url;
+      }
+
+      const result = await pool.query(
+        'INSERT INTO products (name, description, price, stock_quantity, category_id, image_url, specifications) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
+        [name, description, price, stock_quantity, category_id, image_url, specifications]
+      );
+
+      res.status(201).json(result.rows[0]);
+    } catch (error) {
+      console.error('Create product error:', error);
+      res.status(500).json({ message: 'Server error' });
     }
-
-    const { name, description, price, stock_quantity, category_id, image_url, specifications } = req.body;
-
-    const result = await pool.query(
-      'INSERT INTO products (name, description, price, stock_quantity, category_id, image_url, specifications) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
-      [name, description, price, stock_quantity, category_id, image_url, specifications]
-    );
-
-    res.status(201).json(result.rows[0]);
-  } catch (error) {
-    console.error('Create product error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
+  });
 });
 
-// Update product
+// Update product with image upload
 router.put('/:id', authenticateToken, requireAdmin, [
   body('name').optional().notEmpty().trim(),
   body('description').optional().notEmpty().trim(),
   body('price').optional().isDecimal(),
   body('stock_quantity').optional().isInt({ min: 0 })
-], async (req, res) => {
-  try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
-    }
-
-    const { id } = req.params;
-    const updates = req.body;
-    const updateFields = [];
-    const values = [];
-    let paramCount = 0;
-
-    Object.keys(updates).forEach(key => {
-      if (updates[key] !== undefined) {
-        paramCount++;
-        updateFields.push(`${key} = $${paramCount}`);
-        values.push(updates[key]);
+], (req, res) => {
+  uploadSingle(req, res, async (err) => {
+    try {
+      if (err) {
+        console.error('Upload error:', err);
+        return res.status(400).json({ 
+          message: err.message || 'File upload failed',
+          error: 'UPLOAD_ERROR'
+        });
       }
-    });
 
-    if (updateFields.length === 0) {
-      return res.status(400).json({ message: 'No fields to update' });
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+      }
+
+      const { id } = req.params;
+      const updates = req.body;
+      const updateFields = [];
+      const values = [];
+      let paramCount = 0;
+
+      // Handle image URL - either from upload or provided URL
+      if (req.file) {
+        updates.image_url = `/uploads/products/${req.file.filename}`;
+      }
+
+      Object.keys(updates).forEach(key => {
+        if (updates[key] !== undefined) {
+          paramCount++;
+          updateFields.push(`${key} = $${paramCount}`);
+          values.push(updates[key]);
+        }
+      });
+
+      if (updateFields.length === 0) {
+        return res.status(400).json({ message: 'No fields to update' });
+      }
+
+      values.push(id);
+      const query = `UPDATE products SET ${updateFields.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = $${paramCount + 1} RETURNING *`;
+
+      const result = await pool.query(query, values);
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ message: 'Product not found' });
+      }
+
+      res.json(result.rows[0]);
+    } catch (error) {
+      console.error('Update product error:', error);
+      res.status(500).json({ message: 'Server error' });
     }
-
-    values.push(id);
-    const query = `UPDATE products SET ${updateFields.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = $${paramCount + 1} RETURNING *`;
-
-    const result = await pool.query(query, values);
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ message: 'Product not found' });
-    }
-
-    res.json(result.rows[0]);
-  } catch (error) {
-    console.error('Update product error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
+  });
 });
 
 // Delete product
