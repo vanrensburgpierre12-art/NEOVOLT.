@@ -350,6 +350,7 @@ import { useCartStore } from '../stores/cart'
 import { useAuthStore } from '../stores/auth'
 import axios from 'axios'
 import { formatCurrency } from '../utils/currency'
+import YocoPayment from '../components/YocoPayment.vue'
 
 export default {
   name: 'Checkout',

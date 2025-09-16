@@ -209,6 +209,52 @@ const createTables = async () => {
       console.log('Rating columns may already exist:', error.message);
     }
 
+    // Add cost tracking columns to products
+    try {
+      await pool.query(`
+        ALTER TABLE products 
+        ADD COLUMN IF NOT EXISTS cost_price DECIMAL(10,2) DEFAULT 0.00,
+        ADD COLUMN IF NOT EXISTS profit_margin DECIMAL(5,2) DEFAULT 0.00,
+        ADD COLUMN IF NOT EXISTS supplier VARCHAR(255),
+        ADD COLUMN IF NOT EXISTS sku VARCHAR(100),
+        ADD COLUMN IF NOT EXISTS weight DECIMAL(8,2),
+        ADD COLUMN IF NOT EXISTS dimensions JSONB
+      `);
+      console.log('Added cost tracking columns to products table');
+    } catch (error) {
+      console.log('Cost tracking columns may already exist:', error.message);
+    }
+
+    // Create financial reports table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS financial_reports (
+        id SERIAL PRIMARY KEY,
+        report_type VARCHAR(50) NOT NULL,
+        period VARCHAR(10) NOT NULL,
+        data JSONB NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Create company settings table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS company_settings (
+        id SERIAL PRIMARY KEY,
+        setting_key VARCHAR(100) UNIQUE NOT NULL,
+        setting_value JSONB NOT NULL,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Insert default company settings
+    await pool.query(`
+      INSERT INTO company_settings (setting_key, setting_value) VALUES 
+      ('company_info', '{"name": "Neovolt", "vatNumber": "VAT123456789", "address": "Cape Town, South Africa", "contact": {"phone": "+27-XX-XXX-XXXX", "email": "info@neovolt.com"}}'),
+      ('tax_settings', '{"vatRate": 0.15, "currency": "ZAR", "taxInclusive": true}'),
+      ('pricing_settings', '{"defaultMargin": 30, "bulkDiscounts": [{"minQty": 10, "discount": 5}, {"minQty": 50, "discount": 10}]}')
+      ON CONFLICT (setting_key) DO NOTHING
+    `);
+
     console.log('Database tables created successfully');
   } catch (error) {
     console.error('Error creating tables:', error);
