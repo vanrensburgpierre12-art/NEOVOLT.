@@ -34,6 +34,8 @@ services:
       JWT_SECRET: your-super-secret-jwt-key-change-in-production
       PAYPAL_CLIENT_ID: your-paypal-client-id
       PAYPAL_CLIENT_SECRET: your-paypal-client-secret
+    volumes:
+      - uploads_data:/app/uploads
     depends_on:
       postgres:
         condition: service_healthy
@@ -52,6 +54,7 @@ services:
 
 volumes:
   postgres_data:
+  uploads_data:
 
 networks:
   neovolt-network:
