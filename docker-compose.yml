@@ -13,6 +13,11 @@ services:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - neovolt-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d neovolt"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   backend:
     build: ./backend
@@ -25,10 +30,11 @@ services:
       PAYPAL_CLIENT_ID: your-paypal-client-id
       PAYPAL_CLIENT_SECRET: your-paypal-client-secret
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     networks:
       - neovolt-network
-    command: sh -c "npm run migrate && node scripts/create-admin.js && npm start"
+    command: sh -c "npm run test-db && npm run migrate && node scripts/create-admin.js && npm start"
 
   frontend:
     build: ./frontend

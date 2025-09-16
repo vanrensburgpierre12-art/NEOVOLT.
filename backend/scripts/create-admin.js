@@ -24,9 +24,9 @@ const createAdminUser = async () => {
     console.log('Password: admin123');
   } catch (error) {
     console.error('Error creating admin user:', error);
-  } finally {
-    await pool.end();
+    throw error; // Re-throw to ensure the process exits with error code
   }
+  // Don't close the pool here as it's shared with the main application
 };
 
 createAdminUser();
