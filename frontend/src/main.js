@@ -4,11 +4,15 @@ import router from './router'
 import App from './App.vue'
 import './style.css'
 import pwaManager from './utils/pwa'
+import analytics from './utils/analytics'
 
 const app = createApp(App)
 app.use(createPinia())
 app.use(router)
 app.mount('#app')
+
+// Initialize analytics
+analytics.init()
 
 // Register PWA service worker
 if (process.env.NODE_ENV === 'production') {

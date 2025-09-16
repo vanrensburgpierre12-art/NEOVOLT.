@@ -2,17 +2,36 @@ User-agent: *
 Allow: /
 
 # Sitemap
-Sitemap: http://localhost:650/sitemap.xml
+Sitemap: https://neovolt.com/sitemap.xml
 
-# Disallow admin areas
+# Disallow admin areas and private content
 Disallow: /admin/
 Disallow: /api/
+Disallow: /uploads/
+Disallow: /checkout/
+Disallow: /cart/
+Disallow: /profile/
+Disallow: /orders/
 
 # Allow important pages
 Allow: /
 Allow: /products
 Allow: /product/
-Allow: /cart
-Allow: /checkout
-Allow: /login
-Allow: /register
+Allow: /about
+Allow: /contact
+Allow: /shipping
+Allow: /returns
+Allow: /privacy
+Allow: /terms
+
+# Crawl delay for better server performance
+Crawl-delay: 1
+
+# Additional directives for better SEO
+User-agent: Googlebot
+Allow: /
+Crawl-delay: 0
+
+User-agent: Bingbot
+Allow: /
+Crawl-delay: 1

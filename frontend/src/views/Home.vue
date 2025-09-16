@@ -1,5 +1,9 @@
 <template>
   <div class="home">
+    <!-- Structured Data -->
+    <StructuredData type="Organization" :data="{}" />
+    <StructuredData type="WebSite" :data="{}" />
+    
     <!-- Hero Section -->
     <section class="hero">
       <div class="hero-content">
@@ -86,12 +90,15 @@ import { useRouter } from 'vue-router'
 import { useProductsStore } from '../stores/products'
 import { formatCurrency } from '../utils/currency'
 import LazyImage from '../components/LazyImage.vue'
+import StructuredData from '../components/StructuredData.vue'
 import { useMeta } from '../composables/useMeta'
+import analytics from '../utils/analytics'
 
 export default {
   name: 'Home',
   components: {
-    LazyImage
+    LazyImage,
+    StructuredData
   },
   setup() {
     const router = useRouter()
@@ -118,8 +125,13 @@ export default {
         title: 'Neovolt - Deutsche Connectors | High-Quality German Electrical Hardware',
         description: 'Shop premium German electrical connectors and hardware. High-quality Deutsche connectors for reliable power connections. Fast shipping worldwide.',
         keywords: 'deutsche connectors, german electrical, power connectors, electrical hardware, electrical supplies, industrial connectors',
-        image: '/api/placeholder/1200/630'
+        image: '/api/placeholder/1200/630',
+        canonical: window.location.href,
+        robots: 'index, follow'
       })
+      
+      // Track page view
+      analytics.trackPageView('Home Page', '/')
       
       loadFeaturedProducts()
     })
