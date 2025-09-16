@@ -12,6 +12,97 @@ const generateOrderNumber = () => {
   return `NV-${timestamp}-${random}`;
 };
 
+// Create guest order
+router.post('/create-guest', [
+  body('guestInfo').isObject(),
+  body('shippingAddress').isObject(),
+  body('paymentMethod').notEmpty().trim(),
+  body('cartItems').isArray()
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { guestInfo, shippingAddress, paymentMethod, cartItems } = req.body;
+
+    if (cartItems.length === 0) {
+      return res.status(400).json({ message: 'Cart is empty' });
+    }
+
+    // Calculate total
+    const total = cartItems.reduce((sum, item) => sum + (parseFloat(item.price) * item.quantity), 0);
+
+    // Check stock availability
+    for (const item of cartItems) {
+      const productResult = await pool.query(
+        'SELECT stock_quantity FROM products WHERE id = $1 AND is_active = true',
+        [item.product_id]
+      );
+
+      if (productResult.rows.length === 0) {
+        return res.status(400).json({ message: `Product ${item.name} is no longer available` });
+      }
+
+      if (productResult.rows[0].stock_quantity < item.quantity) {
+        return res.status(400).json({ 
+          message: `Insufficient stock for ${item.name}. Available: ${productResult.rows[0].stock_quantity}, Requested: ${item.quantity}` 
+        });
+      }
+    }
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      // Create order
+      const orderNumber = generateOrderNumber();
+      const orderResult = await client.query(`
+        INSERT INTO orders (user_id, order_number, status, total_amount, shipping_address, payment_method, payment_status)
+        VALUES (NULL, $1, 'pending', $2, $3, $4, 'pending')
+        RETURNING *
+      `, [orderNumber, total, JSON.stringify(shippingAddress), paymentMethod]);
+
+      const order = orderResult.rows[0];
+
+      // Create order items and update stock
+      for (const item of cartItems) {
+        await client.query(`
+          INSERT INTO order_items (order_id, product_id, quantity, price)
+          VALUES ($1, $2, $3, $4)
+        `, [order.id, item.product_id, item.quantity, item.price]);
+
+        // Update stock
+        await client.query(`
+          UPDATE products 
+          SET stock_quantity = stock_quantity - $1, updated_at = CURRENT_TIMESTAMP
+          WHERE id = $2
+        `, [item.quantity, item.product_id]);
+      }
+
+      await client.query('COMMIT');
+
+      res.status(201).json({ 
+        message: 'Guest order created successfully',
+        order: {
+          ...order,
+          guestInfo,
+          items: cartItems
+        }
+      });
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    console.error('Create guest order error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // Create order
 router.post('/create', authenticateToken, [
   body('shippingAddress').isObject(),

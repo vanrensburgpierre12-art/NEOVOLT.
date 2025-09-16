@@ -134,6 +134,7 @@ import { formatCurrency } from '../utils/currency'
 import ProductReviews from '../components/ProductReviews.vue'
 import ReviewForm from '../components/ReviewForm.vue'
 import RecentlyViewed from '../components/RecentlyViewed.vue'
+import { useMeta } from '../composables/useMeta'
 
 export default {
   name: 'ProductDetail',
@@ -152,6 +153,7 @@ export default {
     const cartStore = useCartStore()
     const recentlyViewedStore = useRecentlyViewedStore()
     const notificationsStore = useNotificationsStore()
+    const { setMeta } = useMeta()
     
     const product = ref(null)
     const loading = ref(true)
@@ -206,8 +208,16 @@ export default {
         loading.value = true
         product.value = await productsStore.fetchProduct(productId)
         
-        // Add to recently viewed
+        // Set SEO meta tags for product page
         if (product.value) {
+          setMeta({
+            title: `${product.value.name} - Neovolt | Deutsche Connectors`,
+            description: `${product.value.description} | High-quality German electrical connector. Price: ${formatCurrency(product.value.price)}. In stock: ${product.value.stock_quantity} units.`,
+            keywords: `${product.value.name}, deutsche connectors, german electrical, ${product.value.category_name}, electrical hardware, power connectors`,
+            image: product.value.image_url || '/api/placeholder/1200/630'
+          })
+          
+          // Add to recently viewed
           recentlyViewedStore.addProduct(product.value)
         }
         

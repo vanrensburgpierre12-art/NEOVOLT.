@@ -15,6 +15,10 @@ import AdminUsers from '../views/AdminUsers.vue'
 import AdminCategories from '../views/AdminCategories.vue'
 import AdminNewsletters from '../views/AdminNewsletters.vue'
 import Wishlist from '../views/Wishlist.vue'
+import PaymentSuccess from '../views/PaymentSuccess.vue'
+import PaymentCancel from '../views/PaymentCancel.vue'
+import ForgotPassword from '../views/ForgotPassword.vue'
+import ResetPassword from '../views/ResetPassword.vue'
 
 const routes = [
   {
@@ -106,6 +110,26 @@ const routes = [
     name: 'AdminNewsletters',
     component: AdminNewsletters,
     meta: { requiresAuth: true, requiresAdmin: true }
+  },
+  {
+    path: '/payment/success',
+    name: 'PaymentSuccess',
+    component: PaymentSuccess
+  },
+  {
+    path: '/payment/cancel',
+    name: 'PaymentCancel',
+    component: PaymentCancel
+  },
+  {
+    path: '/forgot-password',
+    name: 'ForgotPassword',
+    component: ForgotPassword
+  },
+  {
+    path: '/reset-password',
+    name: 'ResetPassword',
+    component: ResetPassword
   }
 ]
 

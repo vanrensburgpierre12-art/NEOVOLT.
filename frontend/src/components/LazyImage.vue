@@ -1,10 +1,11 @@
 <template>
   <div class="lazy-image-container" :style="{ width: width, height: height }">
-    <img
+    <ResponsiveImage
       v-if="loaded"
       :src="src"
       :alt="alt"
-      :class="['lazy-image', imageClass]"
+      :image-class="['lazy-image', imageClass]"
+      :loading="loading"
       @load="onLoad"
       @error="onError"
     />
@@ -16,9 +17,13 @@
 
 <script>
 import { ref, onMounted, onUnmounted } from 'vue'
+import ResponsiveImage from './ResponsiveImage.vue'
 
 export default {
   name: 'LazyImage',
+  components: {
+    ResponsiveImage
+  },
   props: {
     src: {
       type: String,
@@ -47,6 +52,10 @@ export default {
     rootMargin: {
       type: String,
       default: '50px'
+    },
+    loading: {
+      type: String,
+      default: 'lazy'
     }
   },
   setup(props) {

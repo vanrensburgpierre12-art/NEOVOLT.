@@ -26,10 +26,12 @@
 </template>
 
 <script>
+import { onMounted } from 'vue'
 import Navbar from './components/Navbar.vue'
 import Footer from './components/Footer.vue'
 import WhatsAppIntegration from './components/WhatsAppIntegration.vue'
 import NotificationContainer from './components/NotificationContainer.vue'
+import { useMeta } from './composables/useMeta'
 
 export default {
   name: 'App',
@@ -38,6 +40,13 @@ export default {
     Footer,
     WhatsAppIntegration,
     NotificationContainer
+  },
+  setup() {
+    const { initializeMeta } = useMeta()
+
+    onMounted(() => {
+      initializeMeta()
+    })
   }
 }
 </script>
