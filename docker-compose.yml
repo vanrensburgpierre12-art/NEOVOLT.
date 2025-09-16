@@ -7,17 +7,22 @@ services:
       POSTGRES_DB: neovolt
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: neovolt123
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256 --auth-local=scram-sha-256"
+      POSTGRES_HOST_AUTH_METHOD: scram-sha-256
+      PGDATA: /var/lib/postgresql/data/pgdata
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./init-db:/docker-entrypoint-initdb.d
     networks:
       - neovolt-network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d neovolt"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
 
   backend:
     build: ./backend
@@ -34,7 +39,7 @@ services:
         condition: service_healthy
     networks:
       - neovolt-network
-    command: sh -c "npm run test-db && npm run migrate && node scripts/create-admin.js && npm start"
+    command: sh -c "sleep 10 && npm run test-db && npm run migrate && node scripts/create-admin.js && npm start"
 
   frontend:
     build: ./frontend
