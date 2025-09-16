@@ -212,9 +212,9 @@ const createTables = async () => {
     console.log('Database tables created successfully');
   } catch (error) {
     console.error('Error creating tables:', error);
-  } finally {
-    await pool.end();
+    throw error; // Re-throw to ensure the process exits with error code
   }
+  // Don't close the pool here as it's shared with the main application
 };
 
 createTables();
