@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Offline - Neovolt</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      color: #ffffff;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .offline-container {
+      text-align: center;
+      max-width: 500px;
+      width: 100%;
+    }
+
+    .offline-icon {
+      font-size: 4rem;
+      margin-bottom: 30px;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.1); }
+    }
+
+    .offline-title {
+      font-size: 2.5rem;
+      color: #00ffff;
+      text-shadow: 0 0 20px #00ffff;
+      margin-bottom: 20px;
+      font-family: 'Orbitron', monospace;
+    }
+
+    .offline-message {
+      font-size: 1.2rem;
+      color: rgba(255, 255, 255, 0.8);
+      margin-bottom: 30px;
+      line-height: 1.6;
+    }
+
+    .offline-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      align-items: center;
+    }
+
+    .btn {
+      padding: 12px 24px;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      text-decoration: none;
+      display: inline-block;
+      min-width: 200px;
+    }
+
+    .btn-primary {
+      background: #00ffff;
+      color: #0a0a0a;
+      border: 1px solid #00ffff;
+    }
+
+    .btn-primary:hover {
+      background: #00cccc;
+      border-color: #00cccc;
+      box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+    }
+
+    .btn-secondary {
+      background: transparent;
+      color: #00ffff;
+      border: 1px solid #00ffff;
+    }
+
+    .btn-secondary:hover {
+      background: #00ffff;
+      color: #0a0a0a;
+    }
+
+    .offline-features {
+      margin-top: 40px;
+      padding: 30px;
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(0, 255, 255, 0.3);
+      border-radius: 12px;
+    }
+
+    .offline-features h3 {
+      color: #00ffff;
+      margin-bottom: 20px;
+      font-size: 1.3rem;
+    }
+
+    .feature-list {
+      list-style: none;
+      text-align: left;
+    }
+
+    .feature-list li {
+      color: rgba(255, 255, 255, 0.8);
+      margin-bottom: 10px;
+      padding-left: 25px;
+      position: relative;
+    }
+
+    .feature-list li::before {
+      content: '✓';
+      position: absolute;
+      left: 0;
+      color: #00ffff;
+      font-weight: bold;
+    }
+
+    .connection-status {
+      margin-top: 20px;
+      padding: 15px;
+      background: rgba(255, 107, 107, 0.1);
+      border: 1px solid #ff6b6b;
+      border-radius: 8px;
+      color: #ff6b6b;
+    }
+
+    .connection-status.online {
+      background: rgba(0, 255, 255, 0.1);
+      border-color: #00ffff;
+      color: #00ffff;
+    }
+
+    @media (max-width: 768px) {
+      .offline-title {
+        font-size: 2rem;
+      }
+      
+      .offline-message {
+        font-size: 1rem;
+      }
+      
+      .offline-actions {
+        width: 100%;
+      }
+      
+      .btn {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="offline-container">
+    <div class="offline-icon">📡</div>
+    <h1 class="offline-title">You're Offline</h1>
+    <p class="offline-message">
+      It looks like you're not connected to the internet. Don't worry, you can still browse some of our content that's been saved for offline viewing.
+    </p>
+    
+    <div class="offline-actions">
+      <button onclick="tryReconnect()" class="btn btn-primary">
+        Try Again
+      </button>
+      <a href="/" class="btn btn-secondary">
+        Go to Homepage
+      </a>
+    </div>
+
+    <div class="offline-features">
+      <h3>Available Offline</h3>
+      <ul class="feature-list">
+        <li>Browse previously viewed products</li>
+        <li>View your saved cart items</li>
+        <li>Access your wishlist</li>
+        <li>Read product information</li>
+        <li>View your profile</li>
+      </ul>
+    </div>
+
+    <div id="connectionStatus" class="connection-status">
+      <strong>Connection Status:</strong> <span id="statusText">Checking...</span>
+    </div>
+  </div>
+
+  <script>
+    // Check connection status
+    function updateConnectionStatus() {
+      const statusElement = document.getElementById('connectionStatus');
+      const statusText = document.getElementById('statusText');
+      
+      if (navigator.onLine) {
+        statusElement.className = 'connection-status online';
+        statusText.textContent = 'Connected';
+        
+        // Redirect to main app after a short delay
+        setTimeout(() => {
+          window.location.href = '/';
+        }, 2000);
+      } else {
+        statusElement.className = 'connection-status';
+        statusText.textContent = 'Disconnected';
+      }
+    }
+
+    // Try to reconnect
+    function tryReconnect() {
+      updateConnectionStatus();
+      
+      if (navigator.onLine) {
+        window.location.href = '/';
+      } else {
+        // Show a message that we're still offline
+        const statusText = document.getElementById('statusText');
+        statusText.textContent = 'Still offline - please check your connection';
+        
+        // Try again after 3 seconds
+        setTimeout(() => {
+          updateConnectionStatus();
+        }, 3000);
+      }
+    }
+
+    // Listen for online/offline events
+    window.addEventListener('online', () => {
+      updateConnectionStatus();
+    });
+
+    window.addEventListener('offline', () => {
+      updateConnectionStatus();
+    });
+
+    // Initial status check
+    updateConnectionStatus();
+
+    // Check connection every 5 seconds
+    setInterval(updateConnectionStatus, 5000);
+  </script>
+</body>
+</html>
