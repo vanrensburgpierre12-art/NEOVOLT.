@@ -163,6 +163,52 @@ const createTables = async () => {
       )
     `);
 
+    // Create reviews table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS reviews (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+        rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
+        title VARCHAR(255) NOT NULL,
+        comment TEXT,
+        is_verified BOOLEAN DEFAULT false,
+        is_approved BOOLEAN DEFAULT true,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id, product_id)
+      )
+    `);
+
+    // Create indexes for reviews table
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_reviews_product_id ON reviews(product_id);
+    `);
+    
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_reviews_user_id ON reviews(user_id);
+    `);
+    
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_reviews_rating ON reviews(rating);
+    `);
+    
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_reviews_approved ON reviews(is_approved);
+    `);
+
+    // Add product rating columns
+    try {
+      await pool.query(`
+        ALTER TABLE products 
+        ADD COLUMN IF NOT EXISTS average_rating DECIMAL(3,2) DEFAULT 0.00,
+        ADD COLUMN IF NOT EXISTS review_count INTEGER DEFAULT 0
+      `);
+      console.log('Added rating columns to products table');
+    } catch (error) {
+      console.log('Rating columns may already exist:', error.message);
+    }
+
     console.log('Database tables created successfully');
   } catch (error) {
     console.error('Error creating tables:', error);
