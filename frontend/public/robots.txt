@@ -1,0 +1,18 @@
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: http://localhost:650/sitemap.xml
+
+# Disallow admin areas
+Disallow: /admin/
+Disallow: /api/
+
+# Allow important pages
+Allow: /
+Allow: /products
+Allow: /product/
+Allow: /cart
+Allow: /checkout
+Allow: /login
+Allow: /register

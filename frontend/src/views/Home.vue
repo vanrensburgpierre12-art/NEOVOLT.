@@ -3,8 +3,8 @@
     <!-- Hero Section -->
     <section class="hero">
       <div class="hero-content">
-        <h1 class="hero-title">DUTCH DT SERIES</h1>
-        <p class="hero-subtitle">High-quality Dutch plugs for a reliable power connection</p>
+        <h1 class="hero-title">DEUTSCHE CONNECTORS</h1>
+        <p class="hero-subtitle">High-quality German electrical connectors for a reliable power connection</p>
         <router-link to="/products" class="btn btn-primary btn-lg">SHOP NOW</router-link>
       </div>
     </section>
@@ -86,6 +86,7 @@ import { useRouter } from 'vue-router'
 import { useProductsStore } from '../stores/products'
 import { formatCurrency } from '../utils/currency'
 import LazyImage from '../components/LazyImage.vue'
+import { useMeta } from '../composables/useMeta'
 
 export default {
   name: 'Home',
@@ -95,6 +96,7 @@ export default {
   setup() {
     const router = useRouter()
     const productsStore = useProductsStore()
+    const { setMeta } = useMeta()
     const featuredProducts = ref([])
 
     const goToProduct = (productId) => {
@@ -111,6 +113,14 @@ export default {
     }
 
     onMounted(() => {
+      // Set SEO meta tags for home page
+      setMeta({
+        title: 'Neovolt - Deutsche Connectors | High-Quality German Electrical Hardware',
+        description: 'Shop premium German electrical connectors and hardware. High-quality Deutsche connectors for reliable power connections. Fast shipping worldwide.',
+        keywords: 'deutsche connectors, german electrical, power connectors, electrical hardware, electrical supplies, industrial connectors',
+        image: '/api/placeholder/1200/630'
+      })
+      
       loadFeaturedProducts()
     })
 

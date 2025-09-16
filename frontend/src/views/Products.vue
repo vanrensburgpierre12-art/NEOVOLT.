@@ -89,6 +89,7 @@ import LoadingSpinner from '../components/LoadingSpinner.vue'
 import ProductFilters from '../components/ProductFilters.vue'
 import WishlistButton from '../components/WishlistButton.vue'
 import MobileProductGrid from '../components/MobileProductGrid.vue'
+import { useMeta } from '../composables/useMeta'
 
 export default {
   name: 'Products',
@@ -104,6 +105,7 @@ export default {
     const productsStore = useProductsStore()
     const cartStore = useCartStore()
     const notificationsStore = useNotificationsStore()
+    const { setMeta } = useMeta()
     
     const searchQuery = ref('')
     const selectedCategory = ref('')
@@ -154,6 +156,14 @@ export default {
     }
 
     onMounted(async () => {
+      // Set SEO meta tags for products page
+      setMeta({
+        title: 'Products - Neovolt | Deutsche Connectors & Electrical Hardware',
+        description: 'Browse our complete collection of high-quality German electrical connectors and hardware. Find the perfect Deutsche connectors for your electrical projects.',
+        keywords: 'deutsche connectors, german electrical, electrical hardware, power connectors, electrical supplies, industrial connectors, electrical products',
+        image: '/api/placeholder/1200/630'
+      })
+      
       await productsStore.fetchCategories()
       await productsStore.fetchProducts()
     })

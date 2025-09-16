@@ -17,6 +17,7 @@ const shippingRoutes = require('./routes/shipping');
 const whatsappRoutes = require('./routes/whatsapp');
 const newsletterRoutes = require('./routes/newsletters');
 const uploadRoutes = require('./routes/upload');
+const sitemapRoutes = require('./routes/sitemap');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -79,6 +80,7 @@ app.use('/api/shipping', shippingRoutes);
 app.use('/api/whatsapp', whatsappRoutes);
 app.use('/api/newsletters', newsletterRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/', sitemapRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

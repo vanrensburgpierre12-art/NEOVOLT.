@@ -39,6 +39,9 @@
           </form>
 
           <div class="auth-footer">
+            <p class="forgot-password">
+              <router-link to="/forgot-password" class="auth-link">Forgot your password?</router-link>
+            </p>
             <p>Don't have an account? <router-link to="/register" class="auth-link">Register here</router-link></p>
           </div>
         </div>
@@ -170,6 +173,11 @@ export default {
 
 .auth-footer p {
   color: rgba(255, 255, 255, 0.8);
+}
+
+.forgot-password {
+  text-align: center;
+  margin-bottom: 15px;
 }
 
 .auth-link {

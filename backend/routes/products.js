@@ -181,7 +181,8 @@ router.post('/', authenticateToken, requireAdmin, [
       // Handle image URL - either from upload or provided URL
       let image_url = null;
       if (req.file) {
-        image_url = `/uploads/products/${req.file.filename}`;
+        // Use optimized image if available, otherwise fallback to original
+        image_url = req.file.optimizedPath || `/uploads/products/${req.file.filename}`;
       } else if (req.body.image_url) {
         image_url = req.body.image_url;
       }
@@ -229,7 +230,8 @@ router.put('/:id', authenticateToken, requireAdmin, [
 
       // Handle image URL - either from upload or provided URL
       if (req.file) {
-        updates.image_url = `/uploads/products/${req.file.filename}`;
+        // Use optimized image if available, otherwise fallback to original
+        updates.image_url = req.file.optimizedPath || `/uploads/products/${req.file.filename}`;
       }
 
       Object.keys(updates).forEach(key => {
