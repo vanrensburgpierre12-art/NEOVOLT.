@@ -16,6 +16,11 @@
             <router-link to="/products" class="nav-link">Products</router-link>
           </li>
           <li>
+            <router-link to="/wishlist" class="nav-link">
+              Wishlist ({{ wishlistStore.itemCount }})
+            </router-link>
+          </li>
+          <li>
             <router-link to="/cart" class="nav-link">
               Cart ({{ cartStore.itemCount }})
             </router-link>
@@ -55,15 +60,17 @@
 </template>
 
 <script>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { useCartStore } from '../stores/cart'
+import { useWishlistStore } from '../stores/wishlist'
 
 export default {
   name: 'Navbar',
   setup() {
     const authStore = useAuthStore()
     const cartStore = useCartStore()
+    const wishlistStore = useWishlistStore()
     const showAdminMenu = ref(false)
 
     const logout = async () => {
@@ -75,9 +82,14 @@ export default {
       showAdminMenu.value = !showAdminMenu.value
     }
 
+    onMounted(() => {
+      wishlistStore.fetchWishlist()
+    })
+
     return {
       authStore,
       cartStore,
+      wishlistStore,
       showAdminMenu,
       logout,
       toggleAdminMenu

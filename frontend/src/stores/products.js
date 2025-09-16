@@ -15,7 +15,12 @@ export const useProductsStore = defineStore('products', {
     filters: {
       search: '',
       category: '',
-      page: 1
+      page: 1,
+      sortBy: 'created_at',
+      sortOrder: 'desc',
+      priceMin: '',
+      priceMax: '',
+      inStock: false
     }
   }),
 
@@ -26,6 +31,11 @@ export const useProductsStore = defineStore('products', {
         const params = new URLSearchParams()
         if (this.filters.search) params.append('search', this.filters.search)
         if (this.filters.category) params.append('category', this.filters.category)
+        if (this.filters.sortBy) params.append('sortBy', this.filters.sortBy)
+        if (this.filters.sortOrder) params.append('sortOrder', this.filters.sortOrder)
+        if (this.filters.priceMin) params.append('priceMin', this.filters.priceMin)
+        if (this.filters.priceMax) params.append('priceMax', this.filters.priceMax)
+        if (this.filters.inStock) params.append('inStock', this.filters.inStock)
         params.append('page', this.filters.page)
         params.append('limit', this.pagination.limit)
 
@@ -72,11 +82,37 @@ export const useProductsStore = defineStore('products', {
       this.filters.page = page
     },
 
+    setSortBy(sortBy) {
+      this.filters.sortBy = sortBy
+      this.filters.page = 1
+    },
+
+    setSortOrder(sortOrder) {
+      this.filters.sortOrder = sortOrder
+      this.filters.page = 1
+    },
+
+    setPriceRange(min, max) {
+      this.filters.priceMin = min
+      this.filters.priceMax = max
+      this.filters.page = 1
+    },
+
+    setInStock(inStock) {
+      this.filters.inStock = inStock
+      this.filters.page = 1
+    },
+
     clearFilters() {
       this.filters = {
         search: '',
         category: '',
-        page: 1
+        page: 1,
+        sortBy: 'created_at',
+        sortOrder: 'desc',
+        priceMin: '',
+        priceMax: '',
+        inStock: false
       }
     }
   }
