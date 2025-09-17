@@ -39,6 +39,10 @@
               <span class="amount-label">Total:</span>
               <span class="amount-value">{{ formatCurrency(order.total_amount) }}</span>
             </div>
+            <div v-if="order.shipping_cost > 0" class="shipping-cost">
+              <span class="shipping-label">Shipping:</span>
+              <span class="shipping-value">{{ formatCurrency(order.shipping_cost) }}</span>
+            </div>
             <div class="order-items">
               <span class="items-label">{{ order.item_count }} item(s)</span>
             </div>
@@ -333,6 +337,23 @@ export default {
   font-size: 1.5rem;
   font-weight: 700;
   text-shadow: 0 0 10px #00ffff;
+}
+
+.shipping-cost {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 5px 0;
+}
+
+.shipping-label {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.9rem;
+}
+
+.shipping-value {
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 600;
 }
 
 .order-items {
