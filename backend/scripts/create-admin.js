@@ -11,8 +11,9 @@ const createAdminUser = async () => {
       return;
     }
 
-    // Create admin user
-    const passwordHash = await bcrypt.hash('admin123', 10);
+    // Create admin user with secure password
+    const adminPassword = process.env.ADMIN_PASSWORD || 'NeovoltAdmin2024!Secure';
+    const passwordHash = await bcrypt.hash(adminPassword, 12);
     
     await pool.query(`
       INSERT INTO users (email, password_hash, first_name, last_name, role) 
@@ -21,7 +22,7 @@ const createAdminUser = async () => {
 
     console.log('Admin user created successfully:');
     console.log('Email: admin@neovolt.com');
-    console.log('Password: admin123');
+    console.log('Password: Check environment variable ADMIN_PASSWORD or use default');
   } catch (error) {
     console.error('Error creating admin user:', error);
     throw error; // Re-throw to ensure the process exits with error code
