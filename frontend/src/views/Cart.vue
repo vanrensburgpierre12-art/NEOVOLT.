@@ -69,23 +69,37 @@
           </div>
         </div>
 
+        <!-- Shipping Calculator -->
+        <div class="shipping-section">
+          <ShippingCalculator @shipping-selected="onShippingSelected" />
+        </div>
+
         <!-- Cart Summary -->
         <div class="cart-summary">
           <div class="summary-card">
             <h3>Order Summary</h3>
             <div class="summary-row">
               <span>Subtotal:</span>
-              <span>{{ formatCurrency(cartStore.total) }}</span>
+              <span>{{ formatCurrency(cartStore.subtotal) }}</span>
             </div>
             <div class="summary-row">
               <span>Shipping:</span>
-              <span>Free</span>
+              <span v-if="cartStore.hasShipping">
+                {{ formatCurrency(cartStore.shippingCost) }}
+                <small class="shipping-method">({{ cartStore.selectedShippingOption?.name }})</small>
+              </span>
+              <span v-else class="shipping-pending">Calculate shipping</span>
             </div>
             <div class="summary-row total">
               <span>Total:</span>
-              <span>{{ formatCurrency(cartStore.total) }}</span>
+              <span>{{ formatCurrency(cartStore.grandTotal) }}</span>
             </div>
-            <router-link to="/checkout" class="btn btn-primary btn-lg w-100">
+            <router-link 
+              to="/checkout" 
+              class="btn btn-primary btn-lg w-100"
+              :class="{ disabled: !cartStore.hasShipping }"
+              :disabled="!cartStore.hasShipping"
+            >
               Proceed to Checkout
             </router-link>
             <button @click="clearCart" class="btn btn-secondary w-100 mt-3">
@@ -102,9 +116,13 @@
 import { onMounted } from 'vue'
 import { useCartStore } from '../stores/cart'
 import { formatCurrency } from '../utils/currency'
+import ShippingCalculator from '../components/ShippingCalculator.vue'
 
 export default {
   name: 'Cart',
+  components: {
+    ShippingCalculator
+  },
   setup() {
     const cartStore = useCartStore()
 
@@ -123,6 +141,10 @@ export default {
       }
     }
 
+    const onShippingSelected = (shippingOption) => {
+      cartStore.setShippingOption(shippingOption)
+    }
+
     onMounted(() => {
       cartStore.fetchCart()
     })
@@ -132,6 +154,7 @@ export default {
       updateQuantity,
       removeItem,
       clearCart,
+      onShippingSelected,
       formatCurrency
     }
   }
@@ -179,8 +202,18 @@ export default {
 
 .cart-content {
   display: grid;
-  grid-template-columns: 2fr 1fr;
+  grid-template-columns: 1fr;
   gap: 40px;
+}
+
+.shipping-section {
+  order: 2;
+}
+
+.cart-summary {
+  order: 3;
+  position: sticky;
+  top: 100px;
 }
 
 .cart-items {
@@ -259,9 +292,22 @@ export default {
   font-size: 0.9rem;
 }
 
-.cart-summary {
-  position: sticky;
-  top: 100px;
+.shipping-method {
+  display: block;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.8rem;
+  margin-top: 2px;
+}
+
+.shipping-pending {
+  color: #ffa500;
+  font-style: italic;
+}
+
+.btn.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
 }
 
 .summary-card {
@@ -322,6 +368,10 @@ export default {
   
   .item-subtotal {
     text-align: center;
+  }
+
+  .cart-summary {
+    position: static;
   }
 }
 </style>

@@ -17,7 +17,8 @@ router.post('/create-guest', [
   body('guestInfo').isObject(),
   body('shippingAddress').isObject(),
   body('paymentMethod').notEmpty().trim(),
-  body('cartItems').isArray()
+  body('cartItems').isArray(),
+  body('shippingOption').optional().isObject()
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -25,14 +26,16 @@ router.post('/create-guest', [
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { guestInfo, shippingAddress, paymentMethod, cartItems } = req.body;
+    const { guestInfo, shippingAddress, paymentMethod, cartItems, shippingOption } = req.body;
 
     if (cartItems.length === 0) {
       return res.status(400).json({ message: 'Cart is empty' });
     }
 
     // Calculate total
-    const total = cartItems.reduce((sum, item) => sum + (parseFloat(item.price) * item.quantity), 0);
+    const subtotal = cartItems.reduce((sum, item) => sum + (parseFloat(item.price) * item.quantity), 0);
+    const shippingCost = shippingOption ? parseFloat(shippingOption.price) : 0;
+    const total = subtotal + shippingCost;
 
     // Check stock availability
     for (const item of cartItems) {
@@ -59,10 +62,22 @@ router.post('/create-guest', [
       // Create order
       const orderNumber = generateOrderNumber();
       const orderResult = await client.query(`
-        INSERT INTO orders (user_id, order_number, status, total_amount, shipping_address, payment_method, payment_status)
-        VALUES (NULL, $1, 'pending', $2, $3, $4, 'pending')
+        INSERT INTO orders (user_id, order_number, status, total_amount, shipping_address, payment_method, payment_status, 
+                           shipping_cost, shipping_method, shipping_service, shipping_city, shipping_postal_code, shipping_country)
+        VALUES (NULL, $1, 'pending', $2, $3, $4, 'pending', $5, $6, $7, $8, $9, $10)
         RETURNING *
-      `, [orderNumber, total, JSON.stringify(shippingAddress), paymentMethod]);
+      `, [
+        orderNumber, 
+        total, 
+        JSON.stringify(shippingAddress), 
+        paymentMethod,
+        shippingCost,
+        shippingOption?.id || null,
+        shippingOption?.name || null,
+        shippingAddress.city,
+        shippingAddress.postalCode,
+        shippingAddress.country
+      ]);
 
       const order = orderResult.rows[0];
 
@@ -106,7 +121,8 @@ router.post('/create-guest', [
 // Create order
 router.post('/create', authenticateToken, [
   body('shippingAddress').isObject(),
-  body('paymentMethod').notEmpty().trim()
+  body('paymentMethod').notEmpty().trim(),
+  body('shippingOption').optional().isObject()
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -114,7 +130,7 @@ router.post('/create', authenticateToken, [
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { shippingAddress, paymentMethod } = req.body;
+    const { shippingAddress, paymentMethod, shippingOption } = req.body;
 
     // Get cart items
     const cartResult = await pool.query(`
@@ -129,7 +145,9 @@ router.post('/create', authenticateToken, [
     }
 
     // Calculate total
-    const total = cartResult.rows.reduce((sum, item) => sum + (parseFloat(item.price) * item.quantity), 0);
+    const subtotal = cartResult.rows.reduce((sum, item) => sum + (parseFloat(item.price) * item.quantity), 0);
+    const shippingCost = shippingOption ? parseFloat(shippingOption.price) : 0;
+    const total = subtotal + shippingCost;
 
     // Check stock availability
     for (const item of cartResult.rows) {
@@ -142,10 +160,23 @@ router.post('/create', authenticateToken, [
 
     // Create order
     const orderNumber = generateOrderNumber();
-    const orderResult = await pool.query(
-      'INSERT INTO orders (user_id, order_number, total_amount, shipping_address, payment_method) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-      [req.user.id, orderNumber, total, shippingAddress, paymentMethod]
-    );
+    const orderResult = await pool.query(`
+      INSERT INTO orders (user_id, order_number, total_amount, shipping_address, payment_method, 
+                         shipping_cost, shipping_method, shipping_service, shipping_city, shipping_postal_code, shipping_country)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *
+    `, [
+      req.user.id, 
+      orderNumber, 
+      total, 
+      JSON.stringify(shippingAddress), 
+      paymentMethod,
+      shippingCost,
+      shippingOption?.id || null,
+      shippingOption?.name || null,
+      shippingAddress.city,
+      shippingAddress.postalCode,
+      shippingAddress.country
+    ]);
 
     const order = orderResult.rows[0];
 
@@ -227,7 +258,7 @@ router.get('/:orderId', authenticateToken, async (req, res) => {
     const orderResult = await pool.query(`
       SELECT o.*, u.first_name, u.last_name, u.email
       FROM orders o
-      JOIN users u ON o.user_id = u.id
+      LEFT JOIN users u ON o.user_id = u.id
       WHERE o.id = $1 AND (o.user_id = $2 OR $3 = 'admin')
     `, [orderId, req.user.id, req.user.role]);
 
@@ -251,13 +282,22 @@ router.get('/:orderId', authenticateToken, async (req, res) => {
         orderNumber: order.order_number,
         status: order.status,
         totalAmount: order.total_amount,
+        subtotal: order.total_amount - (order.shipping_cost || 0),
+        shippingCost: order.shipping_cost || 0,
+        shippingMethod: order.shipping_method,
+        shippingService: order.shipping_service,
         shippingAddress: order.shipping_address,
+        shippingCity: order.shipping_city,
+        shippingPostalCode: order.shipping_postal_code,
+        shippingCountry: order.shipping_country,
         paymentMethod: order.payment_method,
         paymentStatus: order.payment_status,
+        trackingNumber: order.tracking_number,
+        shippingStatus: order.shipping_status,
         createdAt: order.created_at,
         updatedAt: order.updated_at,
         customer: {
-          name: `${order.first_name} ${order.last_name}`,
+          name: order.first_name && order.last_name ? `${order.first_name} ${order.last_name}` : 'Guest Customer',
           email: order.email
         }
       },

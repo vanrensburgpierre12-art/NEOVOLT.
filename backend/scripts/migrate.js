@@ -225,6 +225,24 @@ const createTables = async () => {
       console.log('Cost tracking columns may already exist:', error.message);
     }
 
+    // Add shipping cost columns to orders
+    try {
+      await pool.query(`
+        ALTER TABLE orders 
+        ADD COLUMN IF NOT EXISTS shipping_cost DECIMAL(10,2) DEFAULT 0.00,
+        ADD COLUMN IF NOT EXISTS shipping_method VARCHAR(50),
+        ADD COLUMN IF NOT EXISTS shipping_service VARCHAR(50),
+        ADD COLUMN IF NOT EXISTS estimated_delivery_date TIMESTAMP,
+        ADD COLUMN IF NOT EXISTS shipping_address JSONB,
+        ADD COLUMN IF NOT EXISTS shipping_city VARCHAR(100),
+        ADD COLUMN IF NOT EXISTS shipping_postal_code VARCHAR(20),
+        ADD COLUMN IF NOT EXISTS shipping_country VARCHAR(50)
+      `);
+      console.log('Added shipping cost columns to orders table');
+    } catch (error) {
+      console.log('Shipping cost columns may already exist:', error.message);
+    }
+
     // Create financial reports table
     await pool.query(`
       CREATE TABLE IF NOT EXISTS financial_reports (

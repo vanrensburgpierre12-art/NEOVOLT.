@@ -163,6 +163,23 @@
               </div>
             </div>
 
+            <!-- Shipping Information Display -->
+            <div v-if="cartStore.hasShipping" class="shipping-info">
+              <h3>Selected Shipping</h3>
+              <div class="shipping-details">
+                <div class="shipping-option">
+                  <div class="option-name">{{ cartStore.selectedShippingOption.name }}</div>
+                  <div class="option-price">{{ formatCurrency(cartStore.shippingCost) }}</div>
+                </div>
+                <div class="shipping-address">
+                  <strong>Delivery Address:</strong><br>
+                  {{ shippingAddress.address }}<br>
+                  {{ shippingAddress.city }}, {{ shippingAddress.postalCode }}<br>
+                  {{ shippingAddress.country }}
+                </div>
+              </div>
+            </div>
+
             <!-- Order Summary -->
             <div class="order-summary">
               <h3>Order Summary</h3>
@@ -176,20 +193,44 @@
                   <span>{{ formatCurrency(item.subtotal) }}</span>
                 </div>
               </div>
+              <div class="summary-row">
+                <span>Subtotal:</span>
+                <span>{{ formatCurrency(cartStore.subtotal) }}</span>
+              </div>
+              <div class="summary-row">
+                <span>Shipping:</span>
+                <span v-if="cartStore.hasShipping">
+                  {{ formatCurrency(cartStore.shippingCost) }}
+                  <small class="shipping-method">({{ cartStore.selectedShippingOption?.name }})</small>
+                </span>
+                <span v-else class="shipping-pending">Not calculated</span>
+              </div>
               <div class="summary-total">
                 <span>Total:</span>
-                <span>{{ formatCurrency(cartStore.total) }}</span>
+                <span>{{ formatCurrency(cartStore.grandTotal) }}</span>
               </div>
             </div>
 
             <!-- Submit Button -->
             <button 
               type="submit" 
-              :disabled="processing || cartStore.isEmpty"
+              :disabled="processing || cartStore.isEmpty || !cartStore.hasShipping"
               class="btn btn-primary btn-lg w-100"
             >
               {{ processing ? 'Processing...' : 'Complete Order' }}
             </button>
+            
+            <!-- Shipping Required Notice -->
+            <div v-if="!cartStore.hasShipping" class="shipping-notice">
+              <div class="notice-icon">⚠️</div>
+              <div class="notice-content">
+                <strong>Shipping Required</strong>
+                <p>Please calculate and select a shipping option before proceeding to checkout.</p>
+                <router-link to="/cart" class="btn btn-secondary">
+                  Go to Cart to Calculate Shipping
+                </router-link>
+              </div>
+            </div>
           </form>
         </div>
       </div>
@@ -309,6 +350,23 @@
               </div>
             </div>
 
+            <!-- Shipping Information Display -->
+            <div v-if="cartStore.hasShipping" class="shipping-info">
+              <h3>Selected Shipping</h3>
+              <div class="shipping-details">
+                <div class="shipping-option">
+                  <div class="option-name">{{ cartStore.selectedShippingOption.name }}</div>
+                  <div class="option-price">{{ formatCurrency(cartStore.shippingCost) }}</div>
+                </div>
+                <div class="shipping-address">
+                  <strong>Delivery Address:</strong><br>
+                  {{ shippingAddress.address }}<br>
+                  {{ shippingAddress.city }}, {{ shippingAddress.postalCode }}<br>
+                  {{ shippingAddress.country }}
+                </div>
+              </div>
+            </div>
+
             <!-- Order Summary -->
             <div class="order-summary">
               <h2>Order Summary</h2>
@@ -322,20 +380,44 @@
                   <span>{{ formatCurrency(item.subtotal) }}</span>
                 </div>
               </div>
+              <div class="summary-row">
+                <span>Subtotal:</span>
+                <span>{{ formatCurrency(cartStore.subtotal) }}</span>
+              </div>
+              <div class="summary-row">
+                <span>Shipping:</span>
+                <span v-if="cartStore.hasShipping">
+                  {{ formatCurrency(cartStore.shippingCost) }}
+                  <small class="shipping-method">({{ cartStore.selectedShippingOption?.name }})</small>
+                </span>
+                <span v-else class="shipping-pending">Not calculated</span>
+              </div>
               <div class="summary-total">
                 <span>Total:</span>
-                <span>{{ formatCurrency(cartStore.total) }}</span>
+                <span>{{ formatCurrency(cartStore.grandTotal) }}</span>
               </div>
             </div>
 
             <!-- Submit Button -->
             <button 
               type="submit" 
-              :disabled="processing || cartStore.isEmpty"
+              :disabled="processing || cartStore.isEmpty || !cartStore.hasShipping"
               class="btn btn-primary btn-lg w-100"
             >
               {{ processing ? 'Processing...' : 'Complete Order' }}
             </button>
+            
+            <!-- Shipping Required Notice -->
+            <div v-if="!cartStore.hasShipping" class="shipping-notice">
+              <div class="notice-icon">⚠️</div>
+              <div class="notice-content">
+                <strong>Shipping Required</strong>
+                <p>Please calculate and select a shipping option before proceeding to checkout.</p>
+                <router-link to="/cart" class="btn btn-secondary">
+                  Go to Cart to Calculate Shipping
+                </router-link>
+              </div>
+            </div>
           </form>
         </div>
       </div>
@@ -398,7 +480,8 @@ export default {
           guestInfo: guestInfo.value,
           shippingAddress: shippingAddress.value,
           paymentMethod: paymentMethod.value,
-          cartItems: cartStore.items
+          cartItems: cartStore.items,
+          shippingOption: cartStore.selectedShippingOption
         })
 
         const order = orderResponse.data.order
@@ -471,7 +554,8 @@ export default {
         // Create order
         const orderResponse = await axios.post('/api/orders/create', {
           shippingAddress: shippingAddress.value,
-          paymentMethod: paymentMethod.value
+          paymentMethod: paymentMethod.value,
+          shippingOption: cartStore.selectedShippingOption
         })
 
         const order = orderResponse.data.order
@@ -843,6 +927,92 @@ export default {
 .btn-lg {
   padding: 15px 30px;
   font-size: 1.1rem;
+}
+
+.shipping-info {
+  background: rgba(0, 255, 255, 0.1);
+  border: 1px solid rgba(0, 255, 255, 0.3);
+  border-radius: 8px;
+  padding: 20px;
+  margin: 20px 0;
+}
+
+.shipping-info h3 {
+  color: #00ffff;
+  margin-bottom: 15px;
+  font-size: 1.2rem;
+}
+
+.shipping-details {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.shipping-option {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 15px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 6px;
+}
+
+.option-name {
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.option-price {
+  color: #00ffff;
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+.shipping-address {
+  color: rgba(255, 255, 255, 0.8);
+  line-height: 1.5;
+}
+
+.shipping-method {
+  display: block;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.8rem;
+  margin-top: 2px;
+}
+
+.shipping-pending {
+  color: #ffa500;
+  font-style: italic;
+}
+
+.shipping-notice {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  background: rgba(255, 193, 7, 0.1);
+  border: 1px solid #ffc107;
+  border-radius: 8px;
+  padding: 20px;
+  margin-top: 20px;
+}
+
+.notice-icon {
+  font-size: 2rem;
+  flex-shrink: 0;
+}
+
+.notice-content strong {
+  color: #ffc107;
+  display: block;
+  margin-bottom: 8px;
+  font-size: 1.1rem;
+}
+
+.notice-content p {
+  color: rgba(255, 255, 255, 0.8);
+  margin: 0 0 15px 0;
+  line-height: 1.5;
 }
 
 @media (max-width: 768px) {
