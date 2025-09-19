@@ -88,12 +88,23 @@
                 {{ formatCurrency(cartStore.shippingCost) }}
                 <small class="shipping-method">({{ cartStore.selectedShippingOption?.name }})</small>
               </span>
-              <span v-else class="shipping-pending">Calculate shipping</span>
+              <span v-else class="shipping-pending">
+                <span class="shipping-warning">⚠️ Calculate shipping required</span>
+              </span>
             </div>
             <div class="summary-row total">
               <span>Total:</span>
               <span>{{ formatCurrency(cartStore.grandTotal) }}</span>
             </div>
+            <!-- Shipping Required Notice -->
+            <div v-if="!cartStore.hasShipping" class="shipping-required-notice">
+              <div class="notice-icon">⚠️</div>
+              <div class="notice-content">
+                <strong>Shipping Required</strong>
+                <p>Please calculate and select a shipping option before proceeding to checkout.</p>
+              </div>
+            </div>
+            
             <router-link 
               to="/checkout" 
               class="btn btn-primary btn-lg w-100"
@@ -302,6 +313,42 @@ export default {
 .shipping-pending {
   color: #ffa500;
   font-style: italic;
+}
+
+.shipping-warning {
+  color: #ff6b6b;
+  font-weight: 600;
+  font-style: normal;
+}
+
+.shipping-required-notice {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  background: rgba(255, 193, 7, 0.1);
+  border: 1px solid #ffc107;
+  border-radius: 8px;
+  padding: 15px;
+  margin-bottom: 20px;
+}
+
+.notice-icon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+.notice-content strong {
+  color: #ffc107;
+  display: block;
+  margin-bottom: 5px;
+  font-size: 1rem;
+}
+
+.notice-content p {
+  color: rgba(255, 255, 255, 0.8);
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.4;
 }
 
 .btn.disabled {
