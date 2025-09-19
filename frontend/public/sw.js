@@ -209,8 +209,18 @@ async function cacheFirst(request, cacheName) {
   const networkResponse = await fetch(request)
   if (networkResponse.ok) {
     const responseToCache = networkResponse.clone()
-    responseToCache.headers.set('sw-cache-timestamp', Date.now().toString())
-    cache.put(request, responseToCache)
+    // Create new headers with the timestamp
+    const newHeaders = new Headers(responseToCache.headers)
+    newHeaders.set('sw-cache-timestamp', Date.now().toString())
+    
+    // Create new response with modified headers
+    const responseWithTimestamp = new Response(responseToCache.body, {
+      status: responseToCache.status,
+      statusText: responseToCache.statusText,
+      headers: newHeaders
+    })
+    
+    cache.put(request, responseWithTimestamp)
   }
   
   return networkResponse
@@ -227,8 +237,18 @@ async function networkFirst(request, cacheName) {
     if (networkResponse.ok) {
       // Cache the response
       const responseToCache = networkResponse.clone()
-      responseToCache.headers.set('sw-cache-timestamp', Date.now().toString())
-      cache.put(request, responseToCache)
+      // Create new headers with the timestamp
+      const newHeaders = new Headers(responseToCache.headers)
+      newHeaders.set('sw-cache-timestamp', Date.now().toString())
+      
+      // Create new response with modified headers
+      const responseWithTimestamp = new Response(responseToCache.body, {
+        status: responseToCache.status,
+        statusText: responseToCache.statusText,
+        headers: newHeaders
+      })
+      
+      cache.put(request, responseWithTimestamp)
     }
     
     return networkResponse
