@@ -19,6 +19,23 @@
         </div>
       </div>
 
+      <!-- Quick Shipping Options -->
+      <div v-if="!cartStore.hasShipping" class="quick-shipping-section">
+        <h4>Quick Shipping Options</h4>
+        <p class="quick-shipping-note">Select a common destination for instant shipping calculation:</p>
+        <div class="quick-options">
+          <button 
+            v-for="option in quickShippingOptions" 
+            :key="option.country"
+            @click="selectQuickOption(option)"
+            class="quick-option-btn"
+          >
+            {{ option.name }} - {{ option.deliveryTime }}
+          </button>
+        </div>
+        <div class="divider-text">OR</div>
+      </div>
+
       <!-- Destination Address -->
       <div class="address-section">
         <h4>To (Your Address)</h4>
@@ -200,12 +217,14 @@
 import { ref, computed, onMounted } from 'vue'
 import axios from 'axios'
 import { formatCurrency } from '../utils/currency'
+import { useCartStore } from '../stores/cart'
 
 export default {
   name: 'ShippingCalculator',
   emits: ['shipping-selected'],
   setup(props, { emit }) {
-    const showCalculator = ref(false)
+    const cartStore = useCartStore()
+    const showCalculator = ref(true)
     const calculating = ref(false)
     const error = ref('')
     const shippingOptions = ref([])
@@ -228,6 +247,58 @@ export default {
       }
     })
 
+    // Quick shipping options for common destinations
+    const quickShippingOptions = ref([
+      {
+        country: 'DE',
+        name: 'Germany',
+        deliveryTime: '2-3 days',
+        standard: 5.99,
+        express: 12.99,
+        overnight: 24.99
+      },
+      {
+        country: 'NL',
+        name: 'Netherlands',
+        deliveryTime: '3-4 days',
+        standard: 8.99,
+        express: 15.99,
+        overnight: 29.99
+      },
+      {
+        country: 'BE',
+        name: 'Belgium',
+        deliveryTime: '3-4 days',
+        standard: 8.99,
+        express: 15.99,
+        overnight: 29.99
+      },
+      {
+        country: 'FR',
+        name: 'France',
+        deliveryTime: '4-5 days',
+        standard: 9.99,
+        express: 17.99,
+        overnight: 32.99
+      },
+      {
+        country: 'GB',
+        name: 'United Kingdom',
+        deliveryTime: '5-7 days',
+        standard: 14.99,
+        express: 24.99,
+        overnight: 39.99
+      },
+      {
+        country: 'US',
+        name: 'United States',
+        deliveryTime: '7-10 days',
+        standard: 24.99,
+        express: 39.99,
+        overnight: 59.99
+      }
+    ])
+
     // Computed properties
     const isFormValid = computed(() => {
       return destination.value.country && 
@@ -249,6 +320,7 @@ export default {
       shippingOptions.value = []
 
       try {
+        // First try the detailed calculation
         const response = await axios.post('/api/shipping/calculate', {
           destination: destination.value,
           packageDetails: packageDetails.value
@@ -260,8 +332,49 @@ export default {
           error.value = 'No shipping options available for this destination'
         }
       } catch (err) {
-        console.error('Shipping calculation error:', err)
-        error.value = err.response?.data?.message || 'Failed to calculate shipping rates'
+        console.error('Detailed shipping calculation error:', err)
+        
+        // Fallback to simple cart-based calculation
+        try {
+          const fallbackResponse = await axios.post('/api/shipping/cart-cost', {
+            items: [], // Empty items array for basic calculation
+            destination: destination.value
+          })
+          
+          const costs = fallbackResponse.data.cost
+          shippingOptions.value = [
+            {
+              id: 'standard',
+              name: 'Standard Delivery',
+              price: costs.standard,
+              deliveryTime: '5-7 business days',
+              tracking: true,
+              insurance: true,
+              specialNotes: 'Most economical option'
+            },
+            {
+              id: 'express',
+              name: 'Express Delivery',
+              price: costs.express,
+              deliveryTime: '2-3 business days',
+              tracking: true,
+              insurance: true,
+              specialNotes: 'Faster delivery for urgent orders'
+            },
+            {
+              id: 'overnight',
+              name: 'Overnight Delivery',
+              price: costs.overnight,
+              deliveryTime: '1 business day',
+              tracking: true,
+              insurance: true,
+              specialNotes: 'Next business day delivery'
+            }
+          ]
+        } catch (fallbackErr) {
+          console.error('Fallback shipping calculation error:', fallbackErr)
+          error.value = err.response?.data?.message || 'Failed to calculate shipping rates'
+        }
       } finally {
         calculating.value = false
       }
@@ -273,6 +386,8 @@ export default {
 
     const applyShipping = () => {
       if (selectedOption.value) {
+        // Save destination for future use
+        localStorage.setItem('shippingDestination', JSON.stringify(destination.value))
         emit('shipping-selected', selectedOption.value)
       }
     }
@@ -282,13 +397,55 @@ export default {
       calculateShipping()
     }
 
-    // Load saved destination from localStorage
+    const selectQuickOption = (option) => {
+      // Set destination
+      destination.value.country = option.country
+      destination.value.postalCode = '00000' // Placeholder
+      destination.value.city = option.name
+      
+      // Create shipping options from quick option
+      shippingOptions.value = [
+        {
+          id: 'standard',
+          name: 'Standard Delivery',
+          price: option.standard,
+          deliveryTime: option.deliveryTime,
+          tracking: true,
+          insurance: true,
+          specialNotes: 'Most economical option'
+        },
+        {
+          id: 'express',
+          name: 'Express Delivery',
+          price: option.express,
+          deliveryTime: '1-2 business days',
+          tracking: true,
+          insurance: true,
+          specialNotes: 'Faster delivery for urgent orders'
+        },
+        {
+          id: 'overnight',
+          name: 'Overnight Delivery',
+          price: option.overnight,
+          deliveryTime: '1 business day',
+          tracking: true,
+          insurance: true,
+          specialNotes: 'Next business day delivery'
+        }
+      ]
+    }
+
+    // Load saved destination from localStorage and auto-calculate if possible
     onMounted(() => {
       const savedDestination = localStorage.getItem('shippingDestination')
       if (savedDestination) {
         try {
           const data = JSON.parse(savedDestination)
           destination.value = { ...destination.value, ...data }
+          // Auto-calculate if we have all required fields
+          if (destination.value.country && destination.value.postalCode && destination.value.city) {
+            calculateShipping()
+          }
         } catch (error) {
           console.error('Failed to load saved destination:', error)
         }
@@ -296,6 +453,7 @@ export default {
     })
 
     return {
+      cartStore,
       showCalculator,
       calculating,
       error,
@@ -303,12 +461,14 @@ export default {
       selectedOption,
       destination,
       packageDetails,
+      quickShippingOptions,
       isFormValid,
       toggleCalculator,
       calculateShipping,
       selectOption,
       applyShipping,
       retryCalculation,
+      selectQuickOption,
       formatCurrency
     }
   }
@@ -340,6 +500,73 @@ export default {
 .calculator-content {
   border-top: 1px solid rgba(0, 255, 255, 0.2);
   padding-top: 20px;
+}
+
+.quick-shipping-section {
+  background: rgba(0, 255, 255, 0.05);
+  border: 1px solid rgba(0, 255, 255, 0.2);
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.quick-shipping-section h4 {
+  color: #00ffff;
+  margin-bottom: 10px;
+  font-size: 1.1rem;
+}
+
+.quick-shipping-note {
+  color: rgba(255, 255, 255, 0.8);
+  margin-bottom: 15px;
+  font-size: 0.9rem;
+}
+
+.quick-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.quick-option-btn {
+  padding: 12px 16px;
+  background: rgba(26, 26, 46, 0.8);
+  border: 1px solid rgba(0, 255, 255, 0.3);
+  border-radius: 6px;
+  color: #ffffff;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.quick-option-btn:hover {
+  border-color: #00ffff;
+  background: rgba(0, 255, 255, 0.1);
+  box-shadow: 0 0 10px rgba(0, 255, 255, 0.2);
+}
+
+.divider-text {
+  text-align: center;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.9rem;
+  font-weight: 500;
+  position: relative;
+  margin: 15px 0;
+  background: rgba(26, 26, 46, 0.8);
+  padding: 0 15px;
+  z-index: 2;
+}
+
+.divider-text::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: rgba(0, 255, 255, 0.3);
+  z-index: 1;
 }
 
 .address-section {
