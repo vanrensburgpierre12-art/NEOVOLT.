@@ -165,17 +165,54 @@
 
             <!-- Shipping Information Display -->
             <div v-if="cartStore.hasShipping" class="shipping-info">
-              <h3>Selected Shipping</h3>
+              <h3>Selected Delivery Method</h3>
               <div class="shipping-details">
                 <div class="shipping-option">
                   <div class="option-name">{{ cartStore.selectedShippingOption.name }}</div>
-                  <div class="option-price">{{ formatCurrency(cartStore.shippingCost) }}</div>
+                  <div class="option-price">
+                    <span v-if="cartStore.isPickup">Free</span>
+                    <span v-else-if="cartStore.selectedShippingOption.price === 'Quote'">Custom Quote Required</span>
+                    <span v-else>{{ formatCurrency(cartStore.shippingCost) }}</span>
+                  </div>
                 </div>
-                <div class="shipping-address">
+                
+                <!-- Pickup Information -->
+                <div v-if="cartStore.isPickup" class="pickup-details">
+                  <div class="pickup-address">
+                    <strong>Pickup Address:</strong><br>
+                    Neovolt Electronics<br>
+                    123 Industrial Street<br>
+                    Frankfurt, 60311<br>
+                    Germany
+                  </div>
+                  <div class="pickup-hours">
+                    <strong>Pickup Hours:</strong><br>
+                    Mon-Fri: 9:00-17:00<br>
+                    Sat: 9:00-13:00
+                  </div>
+                  <div class="pickup-contact">
+                    <strong>Contact:</strong> +49 69 12345678
+                  </div>
+                  <div class="pickup-instructions">
+                    <strong>Instructions:</strong> Please bring a valid ID and your order confirmation.
+                  </div>
+                </div>
+                
+                <!-- Shipping Address -->
+                <div v-else class="shipping-address">
                   <strong>Delivery Address:</strong><br>
                   {{ shippingAddress.address }}<br>
                   {{ shippingAddress.city }}, {{ shippingAddress.postalCode }}<br>
                   {{ shippingAddress.country }}
+                </div>
+                
+                <!-- Custom Quote Notice -->
+                <div v-if="cartStore.selectedShippingOption.price === 'Quote'" class="custom-quote-notice">
+                  <div class="notice-icon">📞</div>
+                  <div class="notice-content">
+                    <strong>Custom Quote Required</strong>
+                    <p>Items over 1KG require a custom shipping quote. We'll contact you with pricing details.</p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -200,8 +237,12 @@
               <div class="summary-row">
                 <span>Shipping:</span>
                 <span v-if="cartStore.hasShipping">
-                  {{ formatCurrency(cartStore.shippingCost) }}
-                  <small class="shipping-method">({{ cartStore.selectedShippingOption?.name }})</small>
+                  <span v-if="cartStore.isPickup">Free (Pickup)</span>
+                  <span v-else-if="cartStore.selectedShippingOption?.price === 'Quote'">Custom Quote Required</span>
+                  <span v-else>
+                    {{ formatCurrency(cartStore.shippingCost) }}
+                    <small class="shipping-method">({{ cartStore.selectedShippingOption?.name }})</small>
+                  </span>
                 </span>
                 <span v-else class="shipping-pending">Not calculated</span>
               </div>
@@ -352,17 +393,54 @@
 
             <!-- Shipping Information Display -->
             <div v-if="cartStore.hasShipping" class="shipping-info">
-              <h3>Selected Shipping</h3>
+              <h3>Selected Delivery Method</h3>
               <div class="shipping-details">
                 <div class="shipping-option">
                   <div class="option-name">{{ cartStore.selectedShippingOption.name }}</div>
-                  <div class="option-price">{{ formatCurrency(cartStore.shippingCost) }}</div>
+                  <div class="option-price">
+                    <span v-if="cartStore.isPickup">Free</span>
+                    <span v-else-if="cartStore.selectedShippingOption.price === 'Quote'">Custom Quote Required</span>
+                    <span v-else>{{ formatCurrency(cartStore.shippingCost) }}</span>
+                  </div>
                 </div>
-                <div class="shipping-address">
+                
+                <!-- Pickup Information -->
+                <div v-if="cartStore.isPickup" class="pickup-details">
+                  <div class="pickup-address">
+                    <strong>Pickup Address:</strong><br>
+                    Neovolt Electronics<br>
+                    123 Industrial Street<br>
+                    Frankfurt, 60311<br>
+                    Germany
+                  </div>
+                  <div class="pickup-hours">
+                    <strong>Pickup Hours:</strong><br>
+                    Mon-Fri: 9:00-17:00<br>
+                    Sat: 9:00-13:00
+                  </div>
+                  <div class="pickup-contact">
+                    <strong>Contact:</strong> +49 69 12345678
+                  </div>
+                  <div class="pickup-instructions">
+                    <strong>Instructions:</strong> Please bring a valid ID and your order confirmation.
+                  </div>
+                </div>
+                
+                <!-- Shipping Address -->
+                <div v-else class="shipping-address">
                   <strong>Delivery Address:</strong><br>
                   {{ shippingAddress.address }}<br>
                   {{ shippingAddress.city }}, {{ shippingAddress.postalCode }}<br>
                   {{ shippingAddress.country }}
+                </div>
+                
+                <!-- Custom Quote Notice -->
+                <div v-if="cartStore.selectedShippingOption.price === 'Quote'" class="custom-quote-notice">
+                  <div class="notice-icon">📞</div>
+                  <div class="notice-content">
+                    <strong>Custom Quote Required</strong>
+                    <p>Items over 1KG require a custom shipping quote. We'll contact you with pricing details.</p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -387,8 +465,12 @@
               <div class="summary-row">
                 <span>Shipping:</span>
                 <span v-if="cartStore.hasShipping">
-                  {{ formatCurrency(cartStore.shippingCost) }}
-                  <small class="shipping-method">({{ cartStore.selectedShippingOption?.name }})</small>
+                  <span v-if="cartStore.isPickup">Free (Pickup)</span>
+                  <span v-else-if="cartStore.selectedShippingOption?.price === 'Quote'">Custom Quote Required</span>
+                  <span v-else>
+                    {{ formatCurrency(cartStore.shippingCost) }}
+                    <small class="shipping-method">({{ cartStore.selectedShippingOption?.name }})</small>
+                  </span>
                 </span>
                 <span v-else class="shipping-pending">Not calculated</span>
               </div>
@@ -478,10 +560,12 @@ export default {
         // Create guest order
         const orderResponse = await axios.post('/api/orders/create-guest', {
           guestInfo: guestInfo.value,
-          shippingAddress: shippingAddress.value,
+          shippingAddress: cartStore.isPickup ? null : shippingAddress.value,
           paymentMethod: paymentMethod.value,
           cartItems: cartStore.items,
-          shippingOption: cartStore.selectedShippingOption
+          shippingOption: cartStore.selectedShippingOption,
+          deliveryMethod: cartStore.deliveryMethod,
+          pickupInfo: cartStore.pickupInfo
         })
 
         const order = orderResponse.data.order
@@ -553,9 +637,11 @@ export default {
       try {
         // Create order
         const orderResponse = await axios.post('/api/orders/create', {
-          shippingAddress: shippingAddress.value,
+          shippingAddress: cartStore.isPickup ? null : shippingAddress.value,
           paymentMethod: paymentMethod.value,
-          shippingOption: cartStore.selectedShippingOption
+          shippingOption: cartStore.selectedShippingOption,
+          deliveryMethod: cartStore.deliveryMethod,
+          pickupInfo: cartStore.pickupInfo
         })
 
         const order = orderResponse.data.order
@@ -1033,5 +1119,60 @@ export default {
   .checkout-section {
     padding: 20px;
   }
+}
+
+/* Pickup and Custom Quote Styles */
+.pickup-details {
+  margin-top: 15px;
+  padding: 15px;
+  background: rgba(0, 255, 255, 0.05);
+  border: 1px solid rgba(0, 255, 255, 0.2);
+  border-radius: 8px;
+}
+
+.pickup-address,
+.pickup-hours,
+.pickup-contact,
+.pickup-instructions {
+  margin-bottom: 10px;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.9rem;
+}
+
+.pickup-address strong,
+.pickup-hours strong,
+.pickup-contact strong,
+.pickup-instructions strong {
+  color: #00ffff;
+  display: block;
+  margin-bottom: 5px;
+}
+
+.custom-quote-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 15px;
+  margin-top: 15px;
+  padding: 15px;
+  background: rgba(255, 193, 7, 0.1);
+  border: 1px solid rgba(255, 193, 7, 0.3);
+  border-radius: 8px;
+}
+
+.custom-quote-notice .notice-icon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+.custom-quote-notice .notice-content strong {
+  color: #ffc107;
+  display: block;
+  margin-bottom: 5px;
+}
+
+.custom-quote-notice .notice-content p {
+  color: rgba(255, 255, 255, 0.8);
+  margin: 0;
+  font-size: 0.9rem;
 }
 </style>

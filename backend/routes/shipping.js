@@ -1,6 +1,7 @@
 const express = require('express');
 const courierGuyService = require('../services/courierguy');
 const { authenticateToken } = require('../middleware/auth');
+const { pool } = require('../config/database');
 
 const router = express.Router();
 
@@ -37,56 +38,117 @@ router.post('/calculate', async (req, res) => {
       country: 'DE'
     };
 
-    // Get shipping rates from CourierGuy
-    const rates = await courierGuyService.getShippingRates(
-      origin,
-      destination,
-      packageDetails.weight,
-      dimensions
-    );
+    let shippingOptions = [];
 
-    // Format response with different service options
-    const shippingOptions = [
-      {
-        id: 'standard',
-        name: 'Standard Delivery',
-        price: rates.standard?.price || 15.99,
-        deliveryTime: '5-7 business days',
-        tracking: true,
-        insurance: true,
-        specialNotes: 'Most economical option'
-      },
-      {
-        id: 'express',
-        name: 'Express Delivery',
-        price: rates.express?.price || 25.99,
-        deliveryTime: '2-3 business days',
-        tracking: true,
-        insurance: true,
-        specialNotes: 'Faster delivery for urgent orders'
-      },
-      {
-        id: 'overnight',
-        name: 'Overnight Delivery',
-        price: rates.overnight?.price || 45.99,
-        deliveryTime: '1 business day',
-        tracking: true,
-        insurance: true,
-        specialNotes: 'Next business day delivery'
+    // Check if destination is South Africa
+    if (destination.country === 'ZA') {
+      // South Africa specific pricing
+      if (packageDetails.weight <= 1) {
+        shippingOptions = [
+          {
+            id: 'standard',
+            name: 'Standard Delivery (Under 1KG)',
+            price: 150, // R150
+            deliveryTime: '5-7 business days',
+            tracking: true,
+            insurance: true,
+            specialNotes: 'R150 for items under 1KG'
+          }
+        ];
+      } else {
+        // Over 1KG requires custom quote
+        shippingOptions = [
+          {
+            id: 'custom',
+            name: 'Custom Quote Required',
+            price: 'Quote',
+            deliveryTime: '5-7 business days',
+            tracking: true,
+            insurance: true,
+            specialNotes: 'Items over 1KG require custom quote. Contact us for pricing.'
+          }
+        ];
       }
-    ];
+    } else {
+      // Standard calculation for other countries
+      try {
+        // Get shipping rates from CourierGuy
+        const rates = await courierGuyService.getShippingRates(
+          origin,
+          destination,
+          packageDetails.weight,
+          dimensions
+        );
 
-    // Add estimated delivery dates
-    const estimatedDelivery = await courierGuyService.getEstimatedDelivery(
-      origin,
-      destination,
-      packageDetails.serviceType || 'standard'
-    );
+        // Format response with different service options
+        shippingOptions = [
+          {
+            id: 'standard',
+            name: 'Standard Delivery',
+            price: rates.standard?.price || 15.99,
+            deliveryTime: '5-7 business days',
+            tracking: true,
+            insurance: true,
+            specialNotes: 'Most economical option'
+          },
+          {
+            id: 'express',
+            name: 'Express Delivery',
+            price: rates.express?.price || 25.99,
+            deliveryTime: '2-3 business days',
+            tracking: true,
+            insurance: true,
+            specialNotes: 'Faster delivery for urgent orders'
+          },
+          {
+            id: 'overnight',
+            name: 'Overnight Delivery',
+            price: rates.overnight?.price || 45.99,
+            deliveryTime: '1 business day',
+            tracking: true,
+            insurance: true,
+            specialNotes: 'Next business day delivery'
+          }
+        ];
+      } catch (courierError) {
+        console.error('CourierGuy error:', courierError);
+        // Fallback to basic rates
+        const baseRate = getBaseRate(destination.country);
+        shippingOptions = [
+          {
+            id: 'standard',
+            name: 'Standard Delivery',
+            price: baseRate,
+            deliveryTime: '5-7 business days',
+            tracking: true,
+            insurance: true,
+            specialNotes: 'Most economical option'
+          },
+          {
+            id: 'express',
+            name: 'Express Delivery',
+            price: Math.round(baseRate * 1.5 * 100) / 100,
+            deliveryTime: '2-3 business days',
+            tracking: true,
+            insurance: true,
+            specialNotes: 'Faster delivery for urgent orders'
+          },
+          {
+            id: 'overnight',
+            name: 'Overnight Delivery',
+            price: Math.round(baseRate * 2.5 * 100) / 100,
+            deliveryTime: '1 business day',
+            tracking: true,
+            insurance: true,
+            specialNotes: 'Next business day delivery'
+          }
+        ];
+      }
+    }
 
     res.json({
       success: true,
       options: shippingOptions,
-      estimatedDelivery: estimatedDelivery.estimated_delivery,
       origin,
       destination,
       packageDetails: {
@@ -304,7 +366,7 @@ router.get('/zones', async (req, res) => {
 // Calculate shipping cost for cart
 router.post('/cart-cost', async (req, res) => {
   try {
-    const { items, destination } = req.body;
+    const { items, destination, deliveryMethod } = req.body;
 
     if (!items || !Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ message: 'Items are required' });
@@ -312,6 +374,24 @@ router.post('/cart-cost', async (req, res) => {
 
     if (!destination) {
       return res.status(400).json({ message: 'Destination is required' });
+    }
+
+    // Handle pickup option
+    if (deliveryMethod === 'pickup') {
+      return res.json({
+        success: true,
+        cost: {
+          standard: 0,
+          express: 0,
+          overnight: 0
+        },
+        deliveryMethod: 'pickup',
+        pickupInfo: {
+          address: 'Neovolt Electronics, 123 Industrial Street, Frankfurt, 60311, Germany',
+          hours: 'Mon-Fri: 9:00-17:00, Sat: 9:00-13:00',
+          contact: '+49 69 12345678'
+        }
+      });
     }
 
     // Calculate total weight and dimensions
@@ -331,30 +411,100 @@ router.post('/cart-cost', async (req, res) => {
       totalHeight += itemHeight * item.quantity;
     }
 
-    // Calculate shipping cost based on weight and destination
-    const baseRate = getBaseRate(destination.country);
-    const weightMultiplier = Math.ceil(totalWeight / 1); // €1 per kg
-    const shippingCost = baseRate + (weightMultiplier - 1) * 2;
+    let cost = {};
 
-    res.json({
-      success: true,
-      cost: {
+    // Check if destination is South Africa
+    if (destination.country === 'ZA') {
+      if (totalWeight <= 1) {
+        cost = {
+          standard: 150, // R150 for under 1KG
+          express: 'Custom Quote',
+          overnight: 'Custom Quote'
+        };
+      } else {
+        cost = {
+          standard: 'Custom Quote',
+          express: 'Custom Quote',
+          overnight: 'Custom Quote'
+        };
+      }
+    } else {
+      // Calculate shipping cost based on weight and destination for other countries
+      const baseRate = getBaseRate(destination.country);
+      const weightMultiplier = Math.ceil(totalWeight / 1); // €1 per kg
+      const shippingCost = baseRate + (weightMultiplier - 1) * 2;
+
+      cost = {
         standard: Math.round(shippingCost * 100) / 100,
         express: Math.round(shippingCost * 1.5 * 100) / 100,
         overnight: Math.round(shippingCost * 2.5 * 100) / 100
-      },
+      };
+    }
+
+    res.json({
+      success: true,
+      cost: cost,
       weight: totalWeight,
       dimensions: {
         length: maxLength,
         width: maxWidth,
         height: totalHeight
-      }
+      },
+      deliveryMethod: deliveryMethod || 'shipping'
     });
 
   } catch (error) {
     console.error('Cart shipping cost error:', error);
     res.status(500).json({ 
       message: 'Failed to calculate shipping cost',
+      error: error.message 
+    });
+  }
+});
+
+// Handle pickup orders
+router.post('/pickup', authenticateToken, async (req, res) => {
+  try {
+    const { orderId, pickupDetails } = req.body;
+
+    if (!orderId) {
+      return res.status(400).json({ message: 'Order ID is required' });
+    }
+
+    // Get order details from database
+    const orderResult = await pool.query(
+      'SELECT * FROM orders WHERE id = $1',
+      [orderId]
+    );
+
+    if (orderResult.rows.length === 0) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+
+    const order = orderResult.rows[0];
+
+    // Update order with pickup information
+    await pool.query(
+      'UPDATE orders SET shipping_status = $1, pickup_details = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3',
+      ['ready_for_pickup', JSON.stringify(pickupDetails || {}), orderId]
+    );
+
+    res.json({
+      success: true,
+      message: 'Order marked as ready for pickup',
+      pickupInfo: {
+        orderNumber: order.order_number,
+        pickupAddress: 'Neovolt Electronics, 123 Industrial Street, Frankfurt, 60311, Germany',
+        pickupHours: 'Mon-Fri: 9:00-17:00, Sat: 9:00-13:00',
+        contact: '+49 69 12345678',
+        instructions: 'Please bring a valid ID and your order confirmation'
+      }
+    });
+
+  } catch (error) {
+    console.error('Pickup order error:', error);
+    res.status(500).json({ 
+      message: 'Failed to process pickup order',
       error: error.message 
     });
   }

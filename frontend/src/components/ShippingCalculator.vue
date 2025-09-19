@@ -8,8 +8,39 @@
     </div>
 
     <div v-if="showCalculator" class="calculator-content">
+      <!-- Pickup Option -->
+      <div class="pickup-section">
+        <h4>Delivery Options</h4>
+        <div class="delivery-options">
+          <label class="delivery-option">
+            <input 
+              type="radio" 
+              v-model="deliveryMethod" 
+              value="shipping" 
+              @change="onDeliveryMethodChange"
+            />
+            <span class="option-content">
+              <strong>Shipping</strong>
+              <small>We'll deliver to your address</small>
+            </span>
+          </label>
+          <label class="delivery-option">
+            <input 
+              type="radio" 
+              v-model="deliveryMethod" 
+              value="pickup" 
+              @change="onDeliveryMethodChange"
+            />
+            <span class="option-content">
+              <strong>Pickup</strong>
+              <small>Collect from our warehouse (Free)</small>
+            </span>
+          </label>
+        </div>
+      </div>
+
       <!-- Origin Address (Fixed) -->
-      <div class="address-section">
+      <div v-if="deliveryMethod === 'shipping'" class="address-section">
         <h4>From (Our Warehouse)</h4>
         <div class="address-display">
           <div class="address-line">Neovolt Electronics</div>
@@ -20,7 +51,7 @@
       </div>
 
       <!-- Quick Shipping Options -->
-      <div v-if="!cartStore.hasShipping" class="quick-shipping-section">
+      <div v-if="!cartStore.hasShipping && deliveryMethod === 'shipping'" class="quick-shipping-section">
         <h4>Quick Shipping Options</h4>
         <p class="quick-shipping-note">Select a common destination for instant shipping calculation:</p>
         <div class="quick-options">
@@ -37,7 +68,7 @@
       </div>
 
       <!-- Destination Address -->
-      <div class="address-section">
+      <div v-if="deliveryMethod === 'shipping'" class="address-section">
         <h4>To (Your Address)</h4>
         <form @submit.prevent="calculateShipping" class="shipping-form">
           <div class="form-row">
@@ -150,8 +181,41 @@
         </form>
       </div>
 
+      <!-- Pickup Option Results -->
+      <div v-if="deliveryMethod === 'pickup'" class="pickup-results">
+        <h4>Pickup Information</h4>
+        <div class="pickup-option">
+          <div class="option-header">
+            <div class="option-name">Warehouse Pickup</div>
+            <div class="option-price">Free</div>
+          </div>
+          <div class="option-details">
+            <div class="pickup-address">
+              <span class="label">Address:</span>
+              <span class="value">Neovolt Electronics<br>123 Industrial Street<br>Frankfurt, 60311<br>Germany</span>
+            </div>
+            <div class="pickup-hours">
+              <span class="label">Hours:</span>
+              <span class="value">Mon-Fri: 9:00-17:00<br>Sat: 9:00-13:00</span>
+            </div>
+            <div class="pickup-contact">
+              <span class="label">Contact:</span>
+              <span class="value">+49 69 12345678</span>
+            </div>
+          </div>
+          <div class="special-notes">
+            Please bring a valid ID and your order confirmation. We'll notify you when your order is ready for pickup.
+          </div>
+        </div>
+        <div class="selected-option-actions">
+          <button @click="applyPickup" class="btn btn-primary">
+            Select Pickup
+          </button>
+        </div>
+      </div>
+
       <!-- Shipping Options Results -->
-      <div v-if="shippingOptions.length > 0" class="shipping-results">
+      <div v-if="shippingOptions.length > 0 && deliveryMethod === 'shipping'" class="shipping-results">
         <h4>Available Shipping Options</h4>
         <div class="shipping-options">
           <div 
@@ -229,6 +293,7 @@ export default {
     const error = ref('')
     const shippingOptions = ref([])
     const selectedOption = ref(null)
+    const deliveryMethod = ref('shipping')
 
     // Form data
     const destination = ref({
@@ -296,6 +361,14 @@ export default {
         standard: 24.99,
         express: 39.99,
         overnight: 59.99
+      },
+      {
+        country: 'ZA',
+        name: 'South Africa',
+        deliveryTime: '5-7 days',
+        standard: 150, // R150 for under 1KG
+        express: 'Custom Quote',
+        overnight: 'Custom Quote'
       }
     ])
 
@@ -320,59 +393,94 @@ export default {
       shippingOptions.value = []
 
       try {
-        // First try the detailed calculation
-        const response = await axios.post('/api/shipping/calculate', {
-          destination: destination.value,
-          packageDetails: packageDetails.value
-        })
+        // Check if destination is South Africa
+        if (destination.value.country === 'ZA') {
+          // South Africa specific pricing
+          if (packageDetails.value.weight <= 1) {
+            shippingOptions.value = [
+              {
+                id: 'standard',
+                name: 'Standard Delivery (Under 1KG)',
+                price: 150, // R150
+                deliveryTime: '5-7 business days',
+                tracking: true,
+                insurance: true,
+                specialNotes: 'R150 for items under 1KG'
+              }
+            ]
+          } else {
+            // Over 1KG requires custom quote
+            shippingOptions.value = [
+              {
+                id: 'custom',
+                name: 'Custom Quote Required',
+                price: 'Quote',
+                deliveryTime: '5-7 business days',
+                tracking: true,
+                insurance: true,
+                specialNotes: 'Items over 1KG require custom quote. Contact us for pricing.'
+              }
+            ]
+          }
+        } else {
+          // Standard calculation for other countries
+          const response = await axios.post('/api/shipping/calculate', {
+            destination: destination.value,
+            packageDetails: packageDetails.value
+          })
 
-        shippingOptions.value = response.data.options || []
-        
-        if (shippingOptions.value.length === 0) {
-          error.value = 'No shipping options available for this destination'
+          shippingOptions.value = response.data.options || []
+          
+          if (shippingOptions.value.length === 0) {
+            error.value = 'No shipping options available for this destination'
+          }
         }
       } catch (err) {
-        console.error('Detailed shipping calculation error:', err)
+        console.error('Shipping calculation error:', err)
         
-        // Fallback to simple cart-based calculation
-        try {
-          const fallbackResponse = await axios.post('/api/shipping/cart-cost', {
-            items: [], // Empty items array for basic calculation
-            destination: destination.value
-          })
-          
-          const costs = fallbackResponse.data.cost
-          shippingOptions.value = [
-            {
-              id: 'standard',
-              name: 'Standard Delivery',
-              price: costs.standard,
-              deliveryTime: '5-7 business days',
-              tracking: true,
-              insurance: true,
-              specialNotes: 'Most economical option'
-            },
-            {
-              id: 'express',
-              name: 'Express Delivery',
-              price: costs.express,
-              deliveryTime: '2-3 business days',
-              tracking: true,
-              insurance: true,
-              specialNotes: 'Faster delivery for urgent orders'
-            },
-            {
-              id: 'overnight',
-              name: 'Overnight Delivery',
-              price: costs.overnight,
-              deliveryTime: '1 business day',
-              tracking: true,
-              insurance: true,
-              specialNotes: 'Next business day delivery'
-            }
-          ]
-        } catch (fallbackErr) {
-          console.error('Fallback shipping calculation error:', fallbackErr)
+        // Fallback to simple cart-based calculation for non-SA countries
+        if (destination.value.country !== 'ZA') {
+          try {
+            const fallbackResponse = await axios.post('/api/shipping/cart-cost', {
+              items: [], // Empty items array for basic calculation
+              destination: destination.value
+            })
+            
+            const costs = fallbackResponse.data.cost
+            shippingOptions.value = [
+              {
+                id: 'standard',
+                name: 'Standard Delivery',
+                price: costs.standard,
+                deliveryTime: '5-7 business days',
+                tracking: true,
+                insurance: true,
+                specialNotes: 'Most economical option'
+              },
+              {
+                id: 'express',
+                name: 'Express Delivery',
+                price: costs.express,
+                deliveryTime: '2-3 business days',
+                tracking: true,
+                insurance: true,
+                specialNotes: 'Faster delivery for urgent orders'
+              },
+              {
+                id: 'overnight',
+                name: 'Overnight Delivery',
+                price: costs.overnight,
+                deliveryTime: '1 business day',
+                tracking: true,
+                insurance: true,
+                specialNotes: 'Next business day delivery'
+              }
+            ]
+          } catch (fallbackErr) {
+            console.error('Fallback shipping calculation error:', fallbackErr)
+            error.value = err.response?.data?.message || 'Failed to calculate shipping rates'
+          }
+        } else {
           error.value = err.response?.data?.message || 'Failed to calculate shipping rates'
         }
       } finally {
@@ -404,35 +512,80 @@ export default {
       destination.value.city = option.name
       
       // Create shipping options from quick option
-      shippingOptions.value = [
-        {
-          id: 'standard',
-          name: 'Standard Delivery',
-          price: option.standard,
-          deliveryTime: option.deliveryTime,
-          tracking: true,
-          insurance: true,
-          specialNotes: 'Most economical option'
-        },
-        {
-          id: 'express',
-          name: 'Express Delivery',
-          price: option.express,
-          deliveryTime: '1-2 business days',
-          tracking: true,
-          insurance: true,
-          specialNotes: 'Faster delivery for urgent orders'
-        },
-        {
-          id: 'overnight',
-          name: 'Overnight Delivery',
-          price: option.overnight,
-          deliveryTime: '1 business day',
-          tracking: true,
-          insurance: true,
-          specialNotes: 'Next business day delivery'
-        }
-      ]
+      if (option.country === 'ZA') {
+        // South Africa specific pricing
+        shippingOptions.value = [
+          {
+            id: 'standard',
+            name: 'Standard Delivery (Under 1KG)',
+            price: option.standard,
+            deliveryTime: option.deliveryTime,
+            tracking: true,
+            insurance: true,
+            specialNotes: 'R150 for items under 1KG'
+          },
+          {
+            id: 'custom',
+            name: 'Custom Quote Required',
+            price: 'Quote',
+            deliveryTime: '5-7 business days',
+            tracking: true,
+            insurance: true,
+            specialNotes: 'Items over 1KG require custom quote. Contact us for pricing.'
+          }
+        ]
+      } else {
+        // Standard pricing for other countries
+        shippingOptions.value = [
+          {
+            id: 'standard',
+            name: 'Standard Delivery',
+            price: option.standard,
+            deliveryTime: option.deliveryTime,
+            tracking: true,
+            insurance: true,
+            specialNotes: 'Most economical option'
+          },
+          {
+            id: 'express',
+            name: 'Express Delivery',
+            price: option.express,
+            deliveryTime: '1-2 business days',
+            tracking: true,
+            insurance: true,
+            specialNotes: 'Faster delivery for urgent orders'
+          },
+          {
+            id: 'overnight',
+            name: 'Overnight Delivery',
+            price: option.overnight,
+            deliveryTime: '1 business day',
+            tracking: true,
+            insurance: true,
+            specialNotes: 'Next business day delivery'
+          }
+        ]
+      }
+    }
+
+    const onDeliveryMethodChange = () => {
+      // Clear previous selections when switching delivery methods
+      shippingOptions.value = []
+      selectedOption.value = null
+      error.value = ''
+    }
+
+    const applyPickup = () => {
+      const pickupOption = {
+        id: 'pickup',
+        name: 'Warehouse Pickup',
+        price: 0,
+        deliveryTime: 'Ready for pickup',
+        tracking: false,
+        insurance: false,
+        specialNotes: 'Free pickup from our warehouse'
+      }
+      emit('shipping-selected', pickupOption)
     }
 
     // Load saved destination from localStorage and auto-calculate if possible
@@ -462,6 +615,7 @@ export default {
       destination,
       packageDetails,
       quickShippingOptions,
+      deliveryMethod,
       isFormValid,
       toggleCalculator,
       calculateShipping,
@@ -469,6 +623,8 @@ export default {
       applyShipping,
       retryCalculation,
       selectQuickOption,
+      onDeliveryMethodChange,
+      applyPickup,
       formatCurrency
     }
   }
@@ -500,6 +656,89 @@ export default {
 .calculator-content {
   border-top: 1px solid rgba(0, 255, 255, 0.2);
   padding-top: 20px;
+}
+
+.pickup-section {
+  background: rgba(0, 255, 255, 0.05);
+  border: 1px solid rgba(0, 255, 255, 0.2);
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.pickup-section h4 {
+  color: #00ffff;
+  margin-bottom: 15px;
+  font-size: 1.1rem;
+}
+
+.delivery-options {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.delivery-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 15px 20px;
+  background: rgba(26, 26, 46, 0.8);
+  border: 1px solid rgba(0, 255, 255, 0.3);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  flex: 1;
+  min-width: 200px;
+}
+
+.delivery-option:hover {
+  border-color: #00ffff;
+  background: rgba(0, 255, 255, 0.1);
+}
+
+.delivery-option input[type="radio"] {
+  margin: 0;
+  accent-color: #00ffff;
+}
+
+.option-content {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.option-content strong {
+  color: #ffffff;
+  font-size: 1rem;
+}
+
+.option-content small {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.85rem;
+}
+
+.pickup-results {
+  margin-top: 30px;
+}
+
+.pickup-results h4 {
+  color: #00ffff;
+  margin-bottom: 20px;
+  font-size: 1.2rem;
+}
+
+.pickup-option {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(0, 255, 255, 0.3);
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.pickup-address .value,
+.pickup-hours .value {
+  white-space: pre-line;
 }
 
 .quick-shipping-section {

@@ -9,15 +9,18 @@ export const useCartStore = defineStore('cart', {
     shippingCost: 0,
     selectedShippingOption: null,
     shippingAddress: null,
-    shippingCalculated: false
+    shippingCalculated: false,
+    deliveryMethod: 'shipping', // 'shipping' or 'pickup'
+    pickupInfo: null
   }),
 
   getters: {
     itemCount: (state) => state.items.reduce((sum, item) => sum + item.quantity, 0),
     isEmpty: (state) => state.items.length === 0,
     subtotal: (state) => state.total,
-    grandTotal: (state) => state.total + state.shippingCost,
-    hasShipping: (state) => state.selectedShippingOption !== null
+    grandTotal: (state) => state.deliveryMethod === 'pickup' ? state.total : state.total + state.shippingCost,
+    hasShipping: (state) => state.selectedShippingOption !== null || state.deliveryMethod === 'pickup',
+    isPickup: (state) => state.deliveryMethod === 'pickup'
   },
 
   actions: {
@@ -95,10 +98,34 @@ export const useCartStore = defineStore('cart', {
       this.selectedShippingOption = shippingOption
       this.shippingCost = shippingOption.price
       this.shippingCalculated = true
+      this.deliveryMethod = 'shipping'
     },
 
     setShippingAddress(address) {
       this.shippingAddress = address
+    },
+
+    setDeliveryMethod(method) {
+      this.deliveryMethod = method
+      if (method === 'pickup') {
+        this.shippingCost = 0
+        this.selectedShippingOption = {
+          id: 'pickup',
+          name: 'Warehouse Pickup',
+          price: 0,
+          deliveryTime: 'Ready for pickup',
+          tracking: false,
+          insurance: false,
+          specialNotes: 'Free pickup from our warehouse'
+        }
+        this.shippingCalculated = true
+      } else {
+        this.clearShipping()
+      }
+    },
+
+    setPickupInfo(pickupInfo) {
+      this.pickupInfo = pickupInfo
     },
 
     clearShipping() {
@@ -106,14 +133,25 @@ export const useCartStore = defineStore('cart', {
       this.selectedShippingOption = null
       this.shippingAddress = null
       this.shippingCalculated = false
+      this.deliveryMethod = 'shipping'
+      this.pickupInfo = null
     },
 
-    async calculateShippingCost(destination) {
+    async calculateShippingCost(destination, deliveryMethod = 'shipping') {
       try {
         const response = await axios.post('/api/shipping/cart-cost', {
           items: this.items,
-          destination: destination
+          destination: destination,
+          deliveryMethod: deliveryMethod
         })
+        
+        // Update delivery method in store
+        this.deliveryMethod = deliveryMethod
+        
+        // Handle pickup response
+        if (deliveryMethod === 'pickup' && response.data.pickupInfo) {
+          this.pickupInfo = response.data.pickupInfo
+        }
         
         return {
           success: true,
