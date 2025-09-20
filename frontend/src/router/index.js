@@ -20,6 +20,9 @@ import PaymentSuccess from '../views/PaymentSuccess.vue'
 import PaymentCancel from '../views/PaymentCancel.vue'
 import ForgotPassword from '../views/ForgotPassword.vue'
 import ResetPassword from '../views/ResetPassword.vue'
+import ShippingInfo from '../views/ShippingInfo.vue'
+import Returns from '../views/Returns.vue'
+import Warranty from '../views/Warranty.vue'
 
 const routes = [
   {
@@ -137,6 +140,21 @@ const routes = [
     path: '/reset-password',
     name: 'ResetPassword',
     component: ResetPassword
+  },
+  {
+    path: '/shipping',
+    name: 'ShippingInfo',
+    component: ShippingInfo
+  },
+  {
+    path: '/returns',
+    name: 'Returns',
+    component: Returns
+  },
+  {
+    path: '/warranty',
+    name: 'Warranty',
+    component: Warranty
   }
 ]
 
