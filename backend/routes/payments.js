@@ -7,15 +7,37 @@ const { authenticateToken } = require('../middleware/auth');
 const router = express.Router();
 
 // Configure PayPal
-paypal.configure({
+const paypalConfig = {
   mode: process.env.NODE_ENV === 'production' ? 'live' : 'sandbox',
   client_id: process.env.PAYPAL_CLIENT_ID,
   client_secret: process.env.PAYPAL_CLIENT_SECRET
-});
+};
+
+// Validate PayPal configuration
+if (!paypalConfig.client_id || paypalConfig.client_id === 'your-paypal-client-id') {
+  console.error('❌ PayPal Client ID not configured properly');
+  console.error('Please set PAYPAL_CLIENT_ID environment variable');
+}
+
+if (!paypalConfig.client_secret || paypalConfig.client_secret === 'your-paypal-client-secret') {
+  console.error('❌ PayPal Client Secret not configured properly');
+  console.error('Please set PAYPAL_CLIENT_SECRET environment variable');
+}
+
+paypal.configure(paypalConfig);
 
 // Create PayPal payment
 router.post('/paypal/create', authenticateToken, async (req, res) => {
   try {
+    // Check if PayPal is properly configured
+    if (!paypalConfig.client_id || paypalConfig.client_id === 'your-paypal-client-id' ||
+        !paypalConfig.client_secret || paypalConfig.client_secret === 'your-paypal-client-secret') {
+      return res.status(500).json({ 
+        message: 'PayPal is not properly configured. Please contact support.',
+        error: 'PAYPAL_CONFIG_ERROR'
+      });
+    }
+
     const { orderId, returnUrl, cancelUrl } = req.body;
 
     // Get order details

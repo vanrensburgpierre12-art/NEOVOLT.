@@ -33,8 +33,10 @@ services:
       DATABASE_URL: postgresql://postgres:neovolt123@postgres:5432/neovolt
       DATABASE_SSL: false
       JWT_SECRET: your-super-secret-jwt-key-change-in-production
-      PAYPAL_CLIENT_ID: your-paypal-client-id
-      PAYPAL_CLIENT_SECRET: your-paypal-client-secret
+      PAYPAL_CLIENT_ID: ${PAYPAL_CLIENT_ID:-your-paypal-client-id}
+      PAYPAL_CLIENT_SECRET: ${PAYPAL_CLIENT_SECRET:-your-paypal-client-secret}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-your-stripe-secret-key}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:650}
     volumes:
       - uploads_data:/app/uploads
     depends_on:
