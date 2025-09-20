@@ -23,6 +23,7 @@ import ResetPassword from '../views/ResetPassword.vue'
 import ShippingInfo from '../views/ShippingInfo.vue'
 import Returns from '../views/Returns.vue'
 import Warranty from '../views/Warranty.vue'
+import About from '../views/About.vue'
 
 const routes = [
   {
@@ -155,6 +156,11 @@ const routes = [
     path: '/warranty',
     name: 'Warranty',
     component: Warranty
+  },
+  {
+    path: '/about',
+    name: 'About',
+    component: About
   }
 ]
 
